@@ -1,6 +1,5 @@
 import { navigateTo } from '../core/router.js';
-import { getState } from '../core/state.js';
-import { hatchEgg, maxHatchForm } from '../core/state.js';
+import { getState, hatchEgg, maxHatchForm } from '../core/state.js';
 import { EGG_MAP } from '../data/eggs.js';
 import { MONSTER_MAP } from '../data/monsters.js';
 
@@ -16,12 +15,12 @@ function render(el) {
   const waiting   = s.eggs.filter(inst => maxHatchForm(inst.level) < 1);
 
   const hatchCards = hatchable.map(inst => {
-    const def  = EGG_MAP[inst.eggId];
+    const def     = EGG_MAP[inst.eggId];
     if (!def) return '';
     const maxForm = maxHatchForm(inst.level);
-    const formBtns = [1,2,3].map(f => {
+    const formBtns = [1, 2, 3].map(f => {
       const ok = maxForm >= f;
-      return `<button class="form-hatch-btn ${ok?'':'disabled'}" data-iid="${inst.instanceId}" data-form="${f}" ${ok?'':'disabled'}>
+      return `<button class="form-hatch-btn ${ok ? '' : 'disabled'}" data-iid="${inst.instanceId}" data-form="${f}" ${ok ? '' : 'disabled'}>
         第${f}形態孵化
       </button>`;
     }).join('');
@@ -33,9 +32,8 @@ function render(el) {
           <div class="hatch-lv">Lv ${inst.level}</div>
           <div class="hatch-forms">${formBtns}</div>
         </div>
-      </div>
-    `;
-  }).join('') || '';
+      </div>`;
+  }).join('');
 
   const waitingCards = waiting.map(inst => {
     const def = EGG_MAP[inst.eggId];
@@ -47,8 +45,7 @@ function render(el) {
           <div class="hatch-name">${def.name}</div>
           <div class="hatch-lv">Lv ${inst.level} → Lv10以上で孵化可</div>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 
   el.innerHTML = `
@@ -59,7 +56,7 @@ function render(el) {
       </header>
       ${hatchable.length ? `<h3 class="section-label">孵化できる卵</h3>${hatchCards}` : ''}
       ${waiting.length   ? `<h3 class="section-label">成長中 (Lv10未満)</h3>${waitingCards}` : ''}
-      ${!s.eggs.length ? '<p class="empty-msg">卵がありません。クエストで入手しよう！</p>' : ''}
+      ${!s.eggs.length   ? '<p class="empty-msg">卵がありません。クエストで入手しよう！</p>' : ''}
     </div>
   `;
 
@@ -68,7 +65,7 @@ function render(el) {
   el.querySelectorAll('.form-hatch-btn:not([disabled])').forEach(btn => {
     btn.addEventListener('click', () => {
       const result = hatchEgg(btn.dataset.iid, +btn.dataset.form);
-      if (!result) { alert('孵化に失敗しました。ボックスが満杯かもしれません。'); return; }
+      if (!result) { alert('孵化に失敗。モンスターボックスが満杯かもしれません。'); return; }
       showHatchAnim(el, result, () => render(el));
     });
   });
@@ -80,19 +77,13 @@ function showHatchAnim(el, result, cb) {
   overlay.className = 'hatch-overlay';
   overlay.innerHTML = `
     <div class="hatch-anim-box">
-      <div class="hatch-burst">${ATTR_EMOJI[def?.attribute ?? 'fire'] ?? '⭐'}</div>
+      <div class="hatch-burst">${ATTR_EMOJI[def?.attribute] ?? '⭐'}</div>
       <div class="hatch-anim-name">${def?.name ?? '不明'}が誤した！</div>
       <button class="btn btn-primary" id="hatch-ok">ボックスへ</button>
     </div>
   `;
   el.appendChild(overlay);
-  overlay.querySelector('#hatch-ok').addEventListener('click', () => {
-    overlay.remove();
-    cb();
-  });
+  overlay.querySelector('#hatch-ok').addEventListener('click', () => { overlay.remove(); cb(); });
 }
-
-const ATTR_EMOJI_MAP = { fire:'🔥', water:'💧', grass:'🌿', light:'✨', dark:'🌙', dragon:'🐉' };
-function ATTR_EMOJI(a) { return ATTR_EMOJI_MAP[a] ?? '⭐'; }
 
 export function unmount() {}
