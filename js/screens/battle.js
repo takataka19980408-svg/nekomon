@@ -1,437 +1,309 @@
-import { navigateTo } from '../core/router.js';
-import { getState, getAttrMultiplier, monsterStatScale, applyQuestReward } from '../core/state.js';
-import { MONSTER_MAP } from '../data/monsters.js';
-import { QUEST_MAP } from '../data/quests.js';
-import { ENEMY_MAP } from '../data/enemies.js';
-import { SKILL_MAP } from '../data/skills.js';
-import { drawMonster } from '../render/monsterSprites.js';
+import { go } from '../core/router.js';
+import { markCleared } from '../core/state.js';
+import { MONSTERS } from '../data/monsters.js';
+import { ENEMIES }  from '../data/enemies.js';
+import { QUESTS }   from '../data/quests.js';
 
-let CW = 800, CH = 300;
-let GROUND_Y, ALLY_BASE_X, ENEMY_BASE_X, MON_RADIUS;
+const COST_REGEN = 20;
+const MAX_COST   = 500;
 
-const COST_REGEN    = 20;   // ポイント/秒
-const MAX_COST      = 500;  // 最大ポイント
-const BASE_HP       = 10000;
-const SLOT_COOLDOWN = 5;    // 出撃後クールタイム(秒)
-
-let _raf = null;
-let _bs  = null;
-let _canvas = null;
-let _ctx    = null;
-let _el     = null;
-let _questId = null;
+let _el, _canvas, _ctx, _raf, _bs, _quest, _questId;
+let _CW, _CH, _GY, _ABX, _EBX, _UR;
+let _onResize;
 
 export function mount(el, params) {
-  _el = el;
-  _questId = params?.questId;
-  const quest = QUEST_MAP[_questId];
-  if (!quest) { navigateTo('home'); return; }
+  _el      = el;
+  _questId = params?.questId ?? 'forest_1';
+  _quest   = QUESTS.find(q => q.id === _questId);
+  if (!_quest) { go('quest'); return; }
 
   el.innerHTML = `
     <div class="battle-wrap">
-      <div class="battle-hud">
-        <div class="hud-base enemy">
-          <span class="hud-label">敵拠点</span>
-          <div class="hud-bar-wrap"><div class="hud-bar enemy-bar" id="hud-enemy-hp"></div></div>
-          <span class="hud-hp" id="hud-enemy-hp-text"></span>
+      <div class="battle-hud" id="bhud">
+        <div class="hud-side enemy">
+          <div class="hud-lbl">敵基地</div>
+          <div class="hud-bar-bg"><div class="hud-bar" id="ehp" style="width:100%;background:#e74c3c"></div></div>
+          <div class="hud-hp" id="ehp-n">${_quest.enemyBaseHp}</div>
         </div>
-        <div class="hud-time" id="hud-time">0s</div>
-        <div class="hud-base ally">
-          <span class="hud-label">味方拠点</span>
-          <div class="hud-bar-wrap"><div class="hud-bar ally-bar" id="hud-ally-hp"></div></div>
-          <span class="hud-hp" id="hud-ally-hp-text"></span>
+        <div class="hud-time" id="hud-t">0s</div>
+        <div class="hud-side ally">
+          <div class="hud-lbl">自基地</div>
+          <div class="hud-bar-bg"><div class="hud-bar" id="ahp" style="width:100%;background:#27ae60"></div></div>
+          <div class="hud-hp" id="ahp-n">300</div>
         </div>
       </div>
-      <canvas id="battle-canvas"></canvas>
+      <canvas id="bc"></canvas>
       <div class="battle-bottom">
-        <div class="battle-cost-row">
-          <span class="cost-label">ポイント</span>
-          <div class="cost-bar-wrap"><div class="cost-bar" id="cost-bar"></div></div>
-          <span class="cost-val" id="cost-val">0 / ${MAX_COST}</span>
+        <div class="cost-row">
+          <span class="cost-lbl">PT</span>
+          <div class="cost-bar-bg"><div class="cost-bar" id="cbar" style="width:0%"></div></div>
+          <span class="cost-txt" id="ctxt">0 / ${MAX_COST}</span>
         </div>
-        <div class="deploy-row" id="deploy-row"></div>
+        <div class="deploy-row">
+          <button class="d-btn dim" id="d0">
+            <span class="d-icon">🔥</span>
+            <span class="d-name">フレイムパピー</span>
+            <span class="d-cost" id="d0c">100pt</span>
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="battle-overlay hidden" id="battle-overlay">
-      <div class="overlay-box">
-        <div class="overlay-result" id="overlay-result"></div>
-        <button class="btn btn-primary" id="btn-result">結果へ</button>
+      <div class="battle-ov hidden" id="bov">
+        <div class="ov-box">
+          <div class="ov-title" id="ovt"></div>
+          <button class="btn btn-primary" id="ov-go">結果へ</button>
+        </div>
       </div>
     </div>
   `;
 
-  _canvas = el.querySelector('#battle-canvas');
-  _ctx = _canvas.getContext('2d');
+  _canvas = el.querySelector('#bc');
+  _ctx    = _canvas.getContext('2d');
+  _onResize = () => _resize();
+  window.addEventListener('resize', _onResize);
+  setTimeout(_resize, 0);
 
-  requestAnimationFrame(() => {
-    initSizes();
-    _bs = buildBattleState(quest);
-    buildDeployUI(el);
-    updateHUD();
+  _bs = _initState();
 
-    let last = performance.now();
-    function loop(now) {
-      const dt = Math.min((now - last) / 1000, 0.1);
-      last = now;
-      tick(dt);
-      draw();
-      if (!_bs.result) _raf = requestAnimationFrame(loop);
-      else showResult();
-    }
-    _raf = requestAnimationFrame(loop);
+  el.querySelector('#d0').addEventListener('click', _deploy);
+  el.querySelector('#ov-go').addEventListener('click', () =>
+    go('result', { questId: _questId, won: _bs.result === 'win' })
+  );
+
+  _raf = requestAnimationFrame(_loop);
+}
+
+function _resize() {
+  if (!_canvas) return;
+  _CW = _canvas.clientWidth  || (_el?.clientWidth  ?? 600);
+  _CH = _canvas.clientHeight || (_el?.clientHeight ?? 300) - 100;
+  _canvas.width  = _CW;
+  _canvas.height = _CH;
+  _GY  = _CH - 42;
+  _EBX = 50;
+  _ABX = _CW - 50;
+  _UR  = Math.max(10, Math.min(_CW, _CH) * 0.038);
+}
+
+function _initState() {
+  const w = _quest.waves[0];
+  return {
+    t:0, costF:0, cost:0,
+    aBase: { hp:300, maxHp:300 },
+    eBase: { hp:_quest.enemyBaseHp, maxHp:_quest.enemyBaseHp },
+    allies:[], enemies:[],
+    cd: [0],
+    nextSpawn: w?.startAt ?? 3,
+    wIdx: 0,
+    parts: [],
+    result: null,
+    lastTs: null,
+  };
+}
+
+function _loop(ts) {
+  if (!_bs) return;
+  if (_bs.lastTs === null) _bs.lastTs = ts;
+  const dt = Math.min((ts - _bs.lastTs) / 1000, 0.05);
+  _bs.lastTs = ts;
+  if (!_bs.result) _update(dt);
+  _draw();
+  _raf = requestAnimationFrame(_loop);
+}
+
+function _update(dt) {
+  const b = _bs;
+  b.t += dt;
+
+  // cost
+  b.costF += COST_REGEN * dt;
+  const g = b.costF | 0; b.costF -= g;
+  b.cost = Math.min(b.cost + g, MAX_COST);
+
+  // cooldowns
+  for (let i = 0; i < b.cd.length; i++) b.cd[i] = Math.max(0, b.cd[i] - dt);
+
+  // spawn enemies
+  if (b.t >= b.nextSpawn) {
+    const w = _quest.waves[b.wIdx % _quest.waves.length];
+    _spawnEnemy(w.enemyId);
+    b.nextSpawn += w.interval;
+    b.wIdx++;
+  }
+
+  // tick
+  b.allies .forEach(u => _tick(u, dt, b.enemies, b.eBase));
+  b.enemies.forEach(u => _tick(u, dt, b.allies,  b.aBase));
+
+  // death particles
+  [...b.allies, ...b.enemies].forEach(u => {
+    if (u.hp <= 0) _part(u.x, _GY - _UR, u.color);
   });
+  b.allies  = b.allies .filter(u => u.hp > 0);
+  b.enemies = b.enemies.filter(u => u.hp > 0);
+
+  // particles
+  b.parts.forEach(p => { p.y -= 30*dt; p.a -= dt*1.8; });
+  b.parts = b.parts.filter(p => p.a > 0);
+
+  // win/lose
+  if (!b.result) {
+    if (b.eBase.hp <= 0) {
+      b.result = 'win';
+      markCleared(_questId);
+      _showOv('WIN! 🎉', 'win');
+    } else if (b.aBase.hp <= 0) {
+      b.result = 'lose';
+      _showOv('LOSE... 💀', 'lose');
+    }
+  }
+
+  _hud();
+}
+
+function _tick(u, dt, foes, foeBase) {
+  u.atkt = Math.max(0, u.atkt - dt);
+
+  let tgt = null, md = Infinity;
+  foes.forEach(f => { const d = Math.abs(f.x - u.x); if (d < md) { tgt = f; md = d; } });
+
+  if (tgt && md <= u.range) {
+    if (u.atkt === 0) { tgt.hp -= u.atk; u.atkt = u.atkI; _part(tgt.x, _GY - _UR*2, '#FFD700'); }
+  } else {
+    const bd = Math.abs(u.tgtX - u.x);
+    if (bd <= u.range) {
+      if (u.atkt === 0) { foeBase.hp = Math.max(0, foeBase.hp - u.atk); u.atkt = u.atkI; _part(u.tgtX, _GY-60, '#FF5555'); }
+    } else {
+      u.x += u.dir * u.spd * dt;
+    }
+  }
+}
+
+function _spawnAlly(id) {
+  const d = MONSTERS[id]; if (!d) return;
+  _bs.allies.push({ x:_ABX - _UR*3, hp:d.stats.hp, maxHp:d.stats.hp, atk:d.stats.atk, range:d.stats.range, atkI:d.stats.atkInterval, spd:d.stats.speed, atkt:0, dir:-1, tgtX:_EBX, color:d.color });
+}
+
+function _spawnEnemy(id) {
+  const d = ENEMIES[id]; if (!d) return;
+  _bs.enemies.push({ x:_EBX + _UR*3, hp:d.stats.hp, maxHp:d.stats.hp, atk:d.stats.atk, range:d.stats.range, atkI:d.stats.atkInterval, spd:d.stats.speed, atkt:0, dir:+1, tgtX:_ABX, color:d.color });
+}
+
+function _deploy() {
+  if (!_bs || _bs.result) return;
+  const d = MONSTERS['flame_puppy']; if (!d) return;
+  if (_bs.cost < d.stats.cost || _bs.cd[0] > 0) return;
+  _spawnAlly('flame_puppy');
+  _bs.cost -= d.stats.cost;
+  _bs.cd[0] = d.stats.cooldown;
+}
+
+function _part(x, y, col) {
+  _bs.parts.push({ x, y, color:col, a:1.0 });
+}
+
+function _showOv(text, cls) {
+  const ov = _el?.querySelector('#bov');
+  const t  = _el?.querySelector('#ovt');
+  if (ov) ov.classList.remove('hidden');
+  if (t)  { t.textContent = text; t.className = 'ov-title ' + cls; }
+}
+
+function _hud() {
+  const b = _bs;
+  const $ = id => document.getElementById(id);
+  const setW = (el, v) => el && (el.style.width = (Math.max(0, Math.min(1,v))*100)+'%');
+  setW($('ehp'), b.eBase.hp / b.eBase.maxHp);
+  setW($('ahp'), b.aBase.hp / b.aBase.maxHp);
+  setW($('cbar'), b.cost / MAX_COST);
+  const eN = $('ehp-n'); if (eN) eN.textContent = Math.ceil(b.eBase.hp);
+  const aN = $('ahp-n'); if (aN) aN.textContent = Math.ceil(b.aBase.hp);
+  const ct = $('ctxt'); if (ct) ct.textContent = `${b.cost|0} / ${MAX_COST}`;
+  const ht = $('hud-t'); if (ht) ht.textContent = `${b.t|0}s`;
+
+  const btn = $('d0'), dc = $('d0c');
+  if (btn) {
+    btn.classList.remove('ready','dim','cd');
+    const cd = b.cd[0];
+    if (cd > 0) {
+      btn.classList.add('cd');
+      if (dc) dc.textContent = cd.toFixed(1)+'s';
+    } else if (b.cost >= 100) {
+      btn.classList.add('ready');
+      if (dc) dc.textContent = '100pt';
+    } else {
+      btn.classList.add('dim');
+      if (dc) dc.textContent = '100pt';
+    }
+  }
+}
+
+function _draw() {
+  const ctx = _ctx;
+  if (!ctx || !_CW || !_CH) return;
+
+  // sky
+  const sk = ctx.createLinearGradient(0,0,0,_GY);
+  sk.addColorStop(0,'#3a6e3a'); sk.addColorStop(1,'#8ac47a');
+  ctx.fillStyle = sk; ctx.fillRect(0,0,_CW,_GY);
+
+  // ground
+  ctx.fillStyle = '#5a3a10'; ctx.fillRect(0,_GY,_CW,_CH-_GY);
+  ctx.fillStyle = '#3a6a1a'; ctx.fillRect(0,_GY,_CW,10);
+
+  // bases
+  _drawBase(ctx, _EBX, '#CC2222', _bs.eBase.hp/_bs.eBase.maxHp, '☠');
+  _drawBase(ctx, _ABX, '#2244CC', _bs.aBase.hp/_bs.aBase.maxHp, '🏰');
+
+  // units
+  _bs.enemies.forEach(u => _drawUnit(ctx, u, true));
+  _bs.allies .forEach(u => _drawUnit(ctx, u, false));
+
+  // particles
+  _bs.parts.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, p.a);
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+}
+
+function _drawBase(ctx, x, col, ratio, icon) {
+  const bw=28, bh=64, by=_GY-bh;
+  ctx.fillStyle = col+'99'; ctx.fillRect(x-bw/2, by, bw, bh);
+  ctx.strokeStyle = col; ctx.lineWidth=3; ctx.strokeRect(x-bw/2,by,bw,bh);
+  ctx.font=`${bw*.9}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(icon, x, by+bh/2);
+  // hp bar
+  const bw2=54, bh2=6, bx2=x-bw2/2, by2=by-11;
+  ctx.fillStyle='#1116'; ctx.fillRect(bx2,by2,bw2,bh2);
+  ctx.fillStyle=ratio>0.5?'#44DD44':ratio>0.25?'#DDDD44':'#DD4444';
+  ctx.fillRect(bx2,by2,bw2*Math.max(0,ratio),bh2);
+}
+
+function _drawUnit(ctx, u, isEnemy) {
+  const r=_UR, y=_GY-r;
+  ctx.save();
+  ctx.fillStyle = u.color;
+  if (isEnemy) {
+    ctx.beginPath();
+    ctx.moveTo(u.x, y-r); ctx.lineTo(u.x+r, y);
+    ctx.lineTo(u.x, y+r); ctx.lineTo(u.x-r, y);
+    ctx.closePath(); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.arc(u.x, y, r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=1.5; ctx.stroke();
+  // hp bar
+  const hw=r*2, hpR=u.hp/u.maxHp;
+  ctx.fillStyle='#0007'; ctx.fillRect(u.x-r, y+r+2, hw, 4);
+  ctx.fillStyle=hpR>0.5?'#44DD44':'#DD4444';
+  ctx.fillRect(u.x-r, y+r+2, hw*Math.max(0,hpR), 4);
+  ctx.restore();
 }
 
 export function unmount() {
-  if (_raf) cancelAnimationFrame(_raf);
-  _raf = null; _bs = null; _canvas = null; _ctx = null; _el = null;
-}
-
-function initSizes() {
-  const r = _canvas.getBoundingClientRect();
-  CW = r.width  > 0 ? r.width  : 800;
-  CH = r.height > 0 ? r.height : 260;
-  _canvas.width  = CW;
-  _canvas.height = CH;
-  GROUND_Y     = CH - 52;
-  ALLY_BASE_X  = CW - 52;  // 味方拠点: 右
-  ENEMY_BASE_X = 52;        // 敵拠点: 左
-  MON_RADIUS   = Math.max(20, Math.min(32, CH * 0.1));
-}
-
-function buildBattleState(quest) {
-  const s = getState();
-  return {
-    quest,
-    time: 0,
-    cost: 0, costFrac: 0,
-    allyBase:  { hp: BASE_HP, maxHp: BASE_HP },
-    enemyBase: { hp: quest.enemyBaseHp, maxHp: quest.enemyBaseHp },
-    allies:    [],
-    enemies:   [],
-    spawnQueue:    buildSpawnQueue(quest),
-    nextAutoSpawn: 3,
-    particles: [],
-    cooldowns: new Array(s.party.length).fill(0),
-    result:    null,
-  };
-}
-
-function buildSpawnQueue(quest) {
-  const q = [];
-  (quest.enemyWaves ?? []).forEach(w => {
-    for (let i = 0; i < w.count; i++)
-      q.push({ enemyId: w.enemyId, at: w.spawnAt + i * w.interval });
-  });
-  return q.sort((a, b) => a.at - b.at);
-}
-
-function tick(dt) {
-  if (_bs.result) return;
-  _bs.time += dt;
-
-  _bs.costFrac = Math.min(_bs.costFrac + COST_REGEN * dt, MAX_COST);
-  _bs.cost = _bs.costFrac | 0;
-
-  for (let i = 0; i < _bs.cooldowns.length; i++) {
-    if (_bs.cooldowns[i] > 0) _bs.cooldowns[i] = Math.max(0, _bs.cooldowns[i] - dt);
-  }
-
-  while (_bs.spawnQueue.length && _bs.spawnQueue[0].at <= _bs.time)
-    spawnEnemy(_bs.spawnQueue.shift().enemyId);
-
-  if (_bs.spawnQueue.length === 0 && _bs.time >= _bs.nextAutoSpawn) {
-    const fallbackId = _bs.quest.enemyWaves?.[0]?.enemyId;
-    if (fallbackId) spawnEnemy(fallbackId);
-    _bs.nextAutoSpawn = _bs.time + 3;
-  }
-
-  _bs.allies.forEach(u  => tickUnit(u, dt, _bs.enemies, _bs.enemyBase, false));
-  _bs.enemies.forEach(u => tickUnit(u, dt, _bs.allies,  _bs.allyBase,  true));
-
-  _bs.allies  = _bs.allies.filter(u => u.hp > 0);
-  _bs.enemies = _bs.enemies.filter(u => u.hp > 0);
-
-  _bs.particles = _bs.particles.filter(p => { p.life -= dt; return p.life > 0; });
-  _bs.particles.forEach(p => { p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 300*dt; });
-
-  if (_bs.enemyBase.hp <= 0) _bs.result = 'win';
-  if (_bs.allyBase.hp  <= 0) _bs.result = 'lose';
-
-  updateHUD();
-}
-
-function tickUnit(u, dt, foes, foeBase, isEnemy) {
-  u.attackTimer = Math.max(0, u.attackTimer - dt);
-  const dir      = isEnemy ? 1 : -1;
-  const foeBaseX = isEnemy ? ALLY_BASE_X : ENEMY_BASE_X;
-
-  let target = null, minDist = Infinity;
-  foes.forEach(f => {
-    if (f.hp <= 0) return;
-    const d = Math.abs(u.x - f.x);
-    if (d < minDist) { minDist = d; target = f; }
-  });
-
-  const inRangeFoe  = target && minDist <= u.range;
-  const inRangeBase = Math.abs(u.x - foeBaseX) <= u.range;
-
-  if (inRangeFoe || inRangeBase) {
-    if (u.attackTimer === 0) {
-      dealDamage(u, inRangeFoe ? target : null, foeBase, isEnemy);
-      u.attackTimer = u.attackInterval;
-    }
-    u.skillGauge = Math.min(100, u.skillGauge + dt * (100 / u.skillChargeTime));
-  } else {
-    u.x += dir * u.moveSpeed * dt * 80;
-  }
-}
-
-function dealDamage(attacker, foeUnit, foeBase, isEnemy) {
-  const dir = isEnemy ? 1 : -1;
-  const hit = (target, isBase) => {
-    const def  = isBase ? 0 : Math.max(0, target.defense);
-    const mult = isBase ? 1 : getAttrMultiplier(attacker.attribute, target.attribute);
-    const dmg  = Math.max(1, Math.round((attacker.attack - def * 0.3) * mult));
-    target.hp  = Math.max(0, target.hp - dmg);
-    spawnParticle(attacker.x + dir * 30, GROUND_Y - MON_RADIUS - 10, `-${dmg}`, mult > 1);
-  };
-  if (foeUnit) hit(foeUnit, false); else hit(foeBase, true);
-}
-
-function spawnEnemy(enemyId) {
-  const def = ENEMY_MAP[enemyId];
-  if (!def) return;
-  _bs.enemies.push({
-    attribute: def.attribute, type: def.type ?? 'attack', form: def.form ?? 1,
-    x: ENEMY_BASE_X + 40,
-    hp: def.stats.hp, maxHp: def.stats.hp,
-    attack: def.stats.attack, defense: def.stats.defense,
-    attackInterval: def.stats.attackInterval,
-    moveSpeed: def.stats.moveSpeed, range: def.stats.range,
-    attackTimer: 0, skillGauge: 0, skillChargeTime: 30,
-    color: def.color, name: def.name,
-  });
-}
-
-export function deployMonster(slotIdx) {
-  if (!_bs || _bs.result) return false;
-  if (_bs.cooldowns[slotIdx] > 0) return false;
-
-  const s = getState();
-  const slot = s.party[slotIdx];
-  if (!slot || slot.type !== 'monster') return false;
-  const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
-  const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-  if (!def) return false;
-  if (_bs.cost < def.stats.cost) return false;
-
-  const scale = monsterStatScale(inst.level);
-  _bs.costFrac -= def.stats.cost;
-  _bs.cost = _bs.costFrac | 0;
-  _bs.cooldowns[slotIdx] = SLOT_COOLDOWN;
-
-  _bs.allies.push({
-    instanceId: inst.instanceId,
-    attribute: def.attribute, type: def.type, form: def.form,
-    x: ALLY_BASE_X - 40,
-    hp: Math.round(def.stats.hp * scale), maxHp: Math.round(def.stats.hp * scale),
-    attack: Math.round(def.stats.attack * scale), defense: Math.round(def.stats.defense * scale),
-    attackInterval: def.stats.attackInterval,
-    moveSpeed: def.stats.moveSpeed, range: def.stats.range,
-    attackTimer: 0, skillGauge: 0,
-    skillChargeTime: SKILL_MAP[def.skillId]?.chargeTime ?? 20,
-    color: def.color, name: def.name,
-  });
-  return true;
-}
-
-function draw() {
-  const ctx = _ctx;
-  ctx.clearRect(0, 0, CW, CH);
-  drawBackground(ctx);
-  drawBases(ctx);
-  _bs.enemies.forEach(u => drawUnit(ctx, u, true));
-  _bs.allies.forEach(u  => drawUnit(ctx, u, false));
-  _bs.particles.forEach(p => drawParticle(ctx, p));
-}
-
-const BG_COLORS = {
-  forest:       ['#0a2a0a','#1a4a1a'],
-  lake:         ['#060e20','#0a1a40'],
-  volcano:      ['#2a0800','#5a1500'],
-  sanctuary:    ['#1a1a00','#3a3a00'],
-  underworld:   ['#0a000a','#200020'],
-  dragons_nest: ['#1a0800','#3a1500'],
-};
-
-function drawBackground(ctx) {
-  const [c1, c2] = BG_COLORS[_bs.quest.background] ?? ['#0a0a1a','#1a1a3a'];
-  const grad = ctx.createLinearGradient(0, 0, 0, CH);
-  grad.addColorStop(0, c1); grad.addColorStop(1, c2);
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, CW, CH);
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
-  ctx.fillRect(0, GROUND_Y, CW, CH - GROUND_Y);
-  ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CW, GROUND_Y); ctx.stroke();
-}
-
-function drawBases(ctx) {
-  const eR = _bs.enemyBase.hp / _bs.enemyBase.maxHp;
-  const aR = _bs.allyBase.hp  / _bs.allyBase.maxHp;
-  const bW = 44, bH = 68;
-
-  ctx.fillStyle = '#7a1a1a';
-  ctx.beginPath(); roundRect(ctx, ENEMY_BASE_X-bW/2, GROUND_Y-bH, bW, bH, 6); ctx.fill();
-  drawHpBar(ctx, ENEMY_BASE_X-bW/2, GROUND_Y-bH-10, bW, eR, '#e74c3c');
-  ctx.font = `${bW*.48}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('☠', ENEMY_BASE_X, GROUND_Y-bH*.5);
-
-  ctx.fillStyle = '#1a3a7a';
-  ctx.beginPath(); roundRect(ctx, ALLY_BASE_X-bW/2, GROUND_Y-bH, bW, bH, 6); ctx.fill();
-  drawHpBar(ctx, ALLY_BASE_X-bW/2, GROUND_Y-bH-10, bW, aR, '#27ae60');
-  ctx.font = `${bW*.48}px serif`;
-  ctx.fillText('🏰', ALLY_BASE_X, GROUND_Y-bH*.5);
-}
-
-function drawUnit(ctx, u, isEnemy) {
-  const y = GROUND_Y - MON_RADIUS;
-  drawMonster(ctx, u.x, y, MON_RADIUS, u, !isEnemy);
-  drawHpBar(ctx, u.x-MON_RADIUS, y-MON_RADIUS-9, MON_RADIUS*2, u.hp/u.maxHp,
-    isEnemy ? '#e74c3c' : '#27ae60');
-  if (!isEnemy && u.skillGauge >= 100) {
-    ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(u.x, y, MON_RADIUS+6, 0, Math.PI*2); ctx.stroke();
-  }
-}
-
-function drawHpBar(ctx, x, y, w, ratio, color) {
-  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, w, 5);
-  ctx.fillStyle = color; ctx.fillRect(x, y, w*Math.max(0,ratio), 5);
-}
-
-function drawParticle(ctx, p) {
-  ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
-  ctx.font = `bold ${11+p.size}px sans-serif`;
-  ctx.fillStyle = p.color; ctx.textAlign = 'center';
-  ctx.fillText(p.text, p.x, p.y);
-  ctx.globalAlpha = 1;
-}
-
-function spawnParticle(x, y, text, effective) {
-  _bs.particles.push({
-    x, y, vx: (Math.random()-.5)*60, vy: -100-Math.random()*60,
-    life: 1.0, maxLife: 1.0,
-    text, color: effective ? '#FFD700' : '#fff', size: effective ? 5 : 0,
-  });
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
-  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
-  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
-  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
-  ctx.closePath();
-}
-
-function updateHUD() {
-  if (!_el || !_bs) return;
-  const g = id => _el.querySelector(id);
-  const setW = (el, v) => el && (el.style.width = `${Math.max(0, Math.min(1, v)) * 100}%`);
-  setW(g('#hud-ally-hp'),  _bs.allyBase.hp  / _bs.allyBase.maxHp);
-  setW(g('#hud-enemy-hp'), _bs.enemyBase.hp / _bs.enemyBase.maxHp);
-  setW(g('#cost-bar'), _bs.cost / MAX_COST);
-  if (g('#hud-ally-hp-text'))  g('#hud-ally-hp-text').textContent  = _bs.allyBase.hp;
-  if (g('#hud-enemy-hp-text')) g('#hud-enemy-hp-text').textContent = _bs.enemyBase.hp;
-  if (g('#hud-time')) g('#hud-time').textContent = `${_bs.time|0}s`;
-  if (g('#cost-val')) g('#cost-val').textContent  = `${_bs.cost} / ${MAX_COST}`;
-  updateDeployUI();
-}
-
-function buildDeployUI(el) {
-  const s = getState();
-  const row = el.querySelector('#deploy-row');
-  if (!row) return;
-
-  row.innerHTML = s.party.map((slot, i) => {
-    if (!slot || !slot.type) {
-      return `<div class="deploy-btn empty">
-        <span class="deploy-icon">＋</span>
-        <span class="deploy-name">空き</span>
-      </div>`;
-    }
-    if (slot.type === 'egg') {
-      return `<div class="deploy-btn egg-slot">
-        <span class="deploy-icon">🥚</span>
-        <span class="deploy-name">育成中</span>
-        <span class="deploy-cost">出撃不可</span>
-      </div>`;
-    }
-    const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
-    const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-    if (!def) return `<div class="deploy-btn empty"><span class="deploy-name">不明</span></div>`;
-
-    return `<div class="deploy-btn not-enough" data-slot="${i}" data-cost="${def.stats.cost}">
-      <canvas class="deploy-canvas"
-        data-attr="${def.attribute}"
-        data-type="${def.type ?? 'attack'}"
-        data-form="${def.form ?? 1}"
-        data-color="${def.color}"
-        width="44" height="44"></canvas>
-      <span class="deploy-name">${def.name}</span>
-      <span class="deploy-cost" id="dcost-${i}">${def.stats.cost}pt</span>
-      <span class="deploy-cd"   id="dcd-${i}"></span>
-    </div>`;
-  }).join('');
-
-  row.querySelectorAll('.deploy-canvas').forEach(c => {
-    const ctx2 = c.getContext('2d');
-    const { attr, type, form, color } = c.dataset;
-    drawMonster(ctx2, 22, 26, 16, { attribute: attr, type, form: +form, color }, true);
-  });
-
-  row.querySelectorAll('.deploy-btn[data-slot]').forEach(btn => {
-    btn.addEventListener('click', () => deployMonster(+btn.dataset.slot));
-  });
-}
-
-function updateDeployUI() {
-  if (!_el || !_bs) return;
-  const s = getState();
-  _el.querySelectorAll('.deploy-btn[data-slot]').forEach(btn => {
-    const idx = +btn.dataset.slot;
-    const slot = s.party[idx];
-    if (!slot || slot.type !== 'monster') return;
-    const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
-    const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-    if (!def) return;
-
-    const cd        = _bs.cooldowns[idx] ?? 0;
-    const onCD      = cd > 0;
-    const canAfford = _bs.cost >= def.stats.cost;
-
-    btn.classList.toggle('ready',       canAfford && !onCD);
-    btn.classList.toggle('not-enough',  !canAfford && !onCD);
-    btn.classList.toggle('on-cooldown', onCD);
-
-    const cdEl   = document.getElementById(`dcd-${idx}`);
-    const costEl = document.getElementById(`dcost-${idx}`);
-    if (cdEl)   cdEl.textContent   = onCD ? `${Math.ceil(cd)}s` : '';
-    if (costEl) costEl.textContent = onCD ? '' : `${def.stats.cost}pt`;
-  });
-}
-
-function showResult() {
-  if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
-  const overlay  = _el?.querySelector('#battle-overlay');
-  const resultEl = _el?.querySelector('#overlay-result');
-  if (!overlay || !resultEl) return;
-  const isWin = _bs.result === 'win';
-  resultEl.textContent = isWin ? '勝利！' : '敗北…';
-  resultEl.className   = `overlay-result ${isWin ? 'win' : 'lose'}`;
-  overlay.classList.remove('hidden');
-  _el.querySelector('#btn-result').addEventListener('click', () => {
-    const reward = isWin ? applyQuestReward(_bs.quest, getState().party) : { totalExp:0, dropped:[] };
-    navigateTo('result', { win: isWin, reward, questId: _questId });
-  });
+  if (_raf) { cancelAnimationFrame(_raf); _raf=null; }
+  if (_onResize) { window.removeEventListener('resize',_onResize); _onResize=null; }
+  _canvas=null; _ctx=null; _bs=null; _el=null;
 }
