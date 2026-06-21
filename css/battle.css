@@ -1,0 +1,201 @@
+/* battle.css — バトル画面専用スタイル */
+
+/* ================================================
+   ラッパー
+================================================ */
+.battle-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0d0d1a;
+  overflow: hidden;
+}
+
+/* ================================================
+   上部HUD
+================================================ */
+.battle-hud {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  background: rgba(0,0,0,.6);
+  border-bottom: 1px solid #2e2e5a;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.hud-base {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.hud-base.ally  .hud-bar { background: #27ae60; }
+.hud-base.enemy .hud-bar { background: #e74c3c; }
+.hud-base.enemy { align-items: flex-end; }
+
+.hud-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8888aa;
+  letter-spacing: 1px;
+}
+.hud-bar-wrap {
+  width: 100%;
+  height: 10px;
+  background: #1a1a3a;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid #2e2e5a;
+}
+.hud-bar {
+  height: 100%;
+  border-radius: 5px;
+  transition: width .3s ease;
+}
+.hud-base.enemy .hud-bar-wrap { direction: rtl; }
+.hud-hp {
+  font-size: 11px;
+  color: #ccc;
+  font-weight: 700;
+  min-width: 40px;
+}
+.hud-base.enemy .hud-hp { text-align: right; }
+
+.hud-time {
+  font-size: 14px;
+  font-weight: 700;
+  color: #8888bb;
+  min-width: 36px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ================================================
+   キャンバス
+================================================ */
+#battle-canvas {
+  flex: 1;
+  width: 100%;
+  display: block;
+  image-rendering: pixelated;
+  /* スマホ縦から横スクロールのバトル場を表示 */
+  object-fit: fill;
+}
+
+/* ================================================
+   下部UI
+================================================ */
+.battle-bottom {
+  flex-shrink: 0;
+  background: rgba(0,0,0,.7);
+  border-top: 1px solid #2e2e5a;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* コストバー */
+.battle-cost {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cost-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #8888aa;
+  width: 36px;
+  flex-shrink: 0;
+}
+.cost-bar-wrap {
+  flex: 1;
+  height: 12px;
+  background: #1a1a3a;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #2e2e5a;
+}
+.cost-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #5a6aff, #a040ff);
+  border-radius: 6px;
+  transition: width .2s ease;
+}
+.cost-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #aaaadd;
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* 出撃ボタン列 */
+.deploy-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.deploy-btn {
+  width: 72px; height: 72px;
+  border-radius: 14px;
+  background: #1a1a3a;
+  border: 2px solid #3a3a6a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform .1s, border-color .15s, opacity .15s;
+  font-size: 12px;
+  color: #ccc;
+  gap: 3px;
+}
+.deploy-btn:active { transform: scale(.9); }
+.deploy-btn.empty  { opacity: .3; cursor: default; }
+.deploy-btn.egg-deploy {
+  border-color: #5a4a20;
+  background: #1a160a;
+  color: #8a7a40;
+}
+.deploy-btn.not-enough { opacity: .4; }
+.deploy-btn small { font-size: 11px; color: #8888aa; }
+
+/* ================================================
+   バトルオーバーレイ
+================================================ */
+.battle-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: fadeInUp .25s ease;
+}
+.battle-overlay.hidden { display: none; }
+
+.overlay-box {
+  text-align: center;
+  padding: 40px 32px;
+  background: #141428;
+  border-radius: 24px;
+  border: 2px solid #3a3a6a;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.7);
+}
+
+.overlay-result {
+  font-size: 48px;
+  font-weight: 900;
+  line-height: 1;
+}
+.overlay-result.win  { color: #f5c518; text-shadow: 0 0 20px rgba(245,197,24,.5); }
+.overlay-result.lose { color: #e74c3c; text-shadow: 0 0 20px rgba(231,76,60,.5); }
