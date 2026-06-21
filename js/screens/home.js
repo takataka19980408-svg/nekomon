@@ -3,7 +3,7 @@ import { getState } from '../core/state.js';
 import { MONSTER_MAP } from '../data/monsters.js';
 import { EGG_MAP } from '../data/eggs.js';
 
-const ATTR_EMOJI = { fire:'ὒ5', water:'Ὂ7', grass:'ἳf', light:'✨', dark:'ἱ9', dragon:'ὀ9' };
+const ATTR_EMOJI = { fire:'🔥', water:'💧', grass:'🌿', light:'✨', dark:'🌙', dragon:'🐉' };
 
 export function mount(el) {
   const s = getState();
@@ -23,8 +23,8 @@ export function mount(el) {
       const inst = s.eggs.find(e => e.instanceId === slot.instanceId);
       const def  = inst ? EGG_MAP[inst.eggId] : null;
       if (!def) return `<div class="party-slot empty">➕</div>`;
-      return `<div class="party-slot egg-slot" style="border-color:${def.color}">
-        <div class="slot-icon" style="background:${def.color}">ᾕa</div>
+      return `<div class="party-slot" style="border-color:${def.color}">
+        <div class="slot-icon" style="background:${def.color}">🥚</div>
         <div class="slot-name">${def.name}</div>
         <div class="slot-lv">Lv${inst.level}</div>
       </div>`;
@@ -36,31 +36,31 @@ export function mount(el) {
     <div class="home-wrap">
       <header class="home-header">
         <h2 class="home-title">NEKOMON</h2>
-        <div class="home-gold">Ὃ0 ${s.gold}</div>
+        <div class="home-gold">💰 ${s.gold}</div>
       </header>
       <section class="home-party-section">
-        <h3 class="section-label">編成</h3>
+        <h3 class="section-label">現在の編成</h3>
         <div class="party-row">${partyDisplay}</div>
       </section>
       <nav class="home-menu">
         <button class="menu-btn" id="btn-quest">
-          <span class="menu-icon">⚔</span>
+          <span class="menu-icon">⚔️</span>
           <span class="menu-label">クエスト</span>
         </button>
         <button class="menu-btn" id="btn-formation">
-          <span class="menu-icon">Ὄb</span>
+          <span class="menu-icon">📋</span>
           <span class="menu-label">編成</span>
         </button>
         <button class="menu-btn" id="btn-box">
-          <span class="menu-icon">὎6</span>
+          <span class="menu-icon">📦</span>
           <span class="menu-label">ボックス</span>
         </button>
         <button class="menu-btn" id="btn-hatch">
-          <span class="menu-icon">ᾕa</span>
+          <span class="menu-icon">🥚</span>
           <span class="menu-label">孵化</span>
         </button>
         <button class="menu-btn" id="btn-encyclopedia">
-          <span class="menu-icon">Ὅ6</span>
+          <span class="menu-icon">📖</span>
           <span class="menu-label">図鑑</span>
         </button>
       </nav>
