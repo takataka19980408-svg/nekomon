@@ -97,7 +97,6 @@ function initSizes() {
   MON_RADIUS   = Math.max(20, Math.min(32, CH * 0.1));
 }
 
-// ── State builder ──
 function buildBattleState(quest) {
   return {
     quest,
@@ -122,7 +121,6 @@ function buildSpawnQueue(quest) {
   return q.sort((a, b) => a.at - b.at);
 }
 
-// ── Tick ──
 function tick(dt) {
   if (_bs.result) return;
   _bs.time += dt;
@@ -151,9 +149,7 @@ function tick(dt) {
 function tickUnit(u, dt, foes, foeBase, isEnemy) {
   u.attackTimer = Math.max(0, u.attackTimer - dt);
 
-  // 右=味方、左=敵
-  // 味方（isEnemy=false）: 左向きに進軍 (dir=-1)
-  // 敵（isEnemy=true）: 右向きに進軍 (dir=+1)
+  // 右=味方、左=敵。味方は左向き(dir=-1)、敵は右向き(dir=+1)
   const dir      = isEnemy ? 1 : -1;
   const foeBaseX = isEnemy ? ALLY_BASE_X : ENEMY_BASE_X;
 
@@ -239,7 +235,6 @@ export function deployMonster(slotIdx) {
   updateDeployUI();
 }
 
-// ── Draw ──
 function draw() {
   const ctx = _ctx;
   ctx.clearRect(0, 0, CW, CH);
@@ -283,14 +278,12 @@ function drawBases(ctx) {
   const aR = _bs.allyBase.hp  / _bs.allyBase.maxHp;
   const bW = 44, bH = 68;
 
-  // 敵拠点 (左)
   ctx.fillStyle = '#7a1a1a';
   ctx.beginPath(); roundRect(ctx, ENEMY_BASE_X - bW/2, GROUND_Y - bH, bW, bH, 6); ctx.fill();
   drawHpBar(ctx, ENEMY_BASE_X - bW/2, GROUND_Y - bH - 10, bW, eR, '#e74c3c');
   ctx.font = `${bW*.48}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('☠', ENEMY_BASE_X, GROUND_Y - bH*.5);
 
-  // 味方拠点 (右)
   ctx.fillStyle = '#1a3a7a';
   ctx.beginPath(); roundRect(ctx, ALLY_BASE_X - bW/2, GROUND_Y - bH, bW, bH, 6); ctx.fill();
   drawHpBar(ctx, ALLY_BASE_X - bW/2, GROUND_Y - bH - 10, bW, aR, '#27ae60');
@@ -302,10 +295,8 @@ function drawUnit(ctx, u, isEnemy) {
   const y = GROUND_Y - MON_RADIUS;
   const facingLeft = !isEnemy;
   drawMonster(ctx, u.x, y, MON_RADIUS, u, facingLeft);
-
   drawHpBar(ctx, u.x - MON_RADIUS, y - MON_RADIUS - 9, MON_RADIUS * 2, u.hp / u.maxHp,
     isEnemy ? '#e74c3c' : '#27ae60');
-
   if (!isEnemy && u.skillGauge >= 100) {
     ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(u.x, y, MON_RADIUS + 6, 0, Math.PI * 2); ctx.stroke();
@@ -343,7 +334,6 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// ── HUD ──
 function updateHUD() {
   if (!_el || !_bs) return;
   const g = id => _el.querySelector(id);
@@ -364,26 +354,22 @@ function buildDeployUI(el) {
   const row = el.querySelector('#deploy-row');
   if (!row) return;
   row.innerHTML = s.party.map((slot, i) => {
-    if (!slot.type) return `<div class="deploy-btn empty">✕</div>`;
+    if (!slot.type) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
     if (slot.type === 'egg') return `<div class="deploy-btn egg-deploy">🥚<br><small>孵化用</small></div>`;
     const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
     const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-    if (!def) return `<div class="deploy-btn empty">✕</div>`;
-    return `<div class="deploy-btn" data-slot="${i}" style="border-color:${def.color}">
-      <span class="deploy-icon" data-attr="${def.attribute}" data-type="${def.type}" data-form="${def.form}" data-color="${def.color}"></span>
-      <small>${def.stats.cost}pt</small>
+    if (!def) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
+    return `<div class="deploy-btn" data-slot="${i}" style="border-color:${def.color};background:${def.color}1a">
+      <canvas class="deploy-canvas" data-attr="${def.attribute}" data-type="${def.type}" data-form="${def.form}" data-color="${def.color}" width="52" height="52"></canvas>
+      <small style="color:${def.color}">${def.stats.cost}pt</small>
     </div>`;
   }).join('');
 
-  el.querySelectorAll('.deploy-icon').forEach(span => {
-    const { attr, type, form, color } = span.dataset;
-    const c = document.createElement('canvas');
-    c.width = 48; c.height = 48;
+  // 既インポート済みの drawMonster を同期的に使用
+  row.querySelectorAll('.deploy-canvas').forEach(c => {
     const ctx2 = c.getContext('2d');
-    import('../render/monsterSprites.js').then(m => {
-      m.drawMonster(ctx2, 24, 28, 18, { attribute: attr, type, form: +form, color }, true);
-    });
-    span.replaceWith(c);
+    const { attr, type, form, color } = c.dataset;
+    drawMonster(ctx2, 26, 32, 20, { attribute: attr, type, form: +form, color }, true);
   });
 
   row.querySelectorAll('.deploy-btn[data-slot]').forEach(btn => {
