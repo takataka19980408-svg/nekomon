@@ -3,123 +3,122 @@
 .battle-wrap {
   display: flex;
   flex-direction: column;
-  height: 100%;          /* 100vh → 100%: 親.screenを埋める */
+  height: 100%;
   background: #0d0d1a;
   overflow: hidden;
 }
 
+/* ── HUD ─────────────────────────────── */
 .battle-hud {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px 6px;
-  background: rgba(0,0,0,.6);
+  padding: 6px 12px;
+  background: rgba(0,0,0,.65);
   border-bottom: 1px solid #2e2e5a;
-  z-index: 10;
   flex-shrink: 0;
 }
-
 .hud-base {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
-.hud-base.ally  .hud-bar { background: #27ae60; }
-.hud-base.enemy .hud-bar { background: #e74c3c; }
 .hud-base.enemy { align-items: flex-end; }
-
 .hud-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #8888aa;
   letter-spacing: 1px;
 }
 .hud-bar-wrap {
   width: 100%;
-  height: 10px;
+  height: 8px;
   background: #1a1a3a;
-  border-radius: 5px;
+  border-radius: 4px;
   overflow: hidden;
   border: 1px solid #2e2e5a;
 }
 .hud-bar {
   height: 100%;
-  border-radius: 5px;
+  border-radius: 4px;
   transition: width .3s ease;
 }
+.hud-base.ally  .hud-bar { background: #27ae60; }
+.hud-base.enemy .hud-bar { background: #e74c3c; }
 .hud-base.enemy .hud-bar-wrap { direction: rtl; }
 .hud-hp {
-  font-size: 11px;
+  font-size: 10px;
   color: #ccc;
   font-weight: 700;
-  min-width: 40px;
+  min-width: 44px;
 }
 .hud-base.enemy .hud-hp { text-align: right; }
-
 .hud-time {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #8888bb;
-  min-width: 36px;
+  min-width: 32px;
   text-align: center;
   flex-shrink: 0;
 }
 
+/* ── キャンバス ─────────────────────────── */
 #battle-canvas {
   flex: 1;
   width: 100%;
   display: block;
   image-rendering: pixelated;
-  object-fit: fill;
   touch-action: none;
 }
 
+/* ── 下部 UI ────────────────────────────── */
 .battle-bottom {
   flex-shrink: 0;
-  background: rgba(0,0,0,.75);
+  background: rgba(0,0,0,.8);
   border-top: 1px solid #2e2e5a;
-  padding: 8px 12px 12px;
+  padding: 6px 12px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.battle-cost {
+/* ポイントバー */
+.battle-cost-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .cost-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: #8888aa;
-  width: 36px;
   flex-shrink: 0;
 }
 .cost-bar-wrap {
   flex: 1;
-  height: 10px;
+  height: 12px;
   background: #1a1a3a;
-  border-radius: 5px;
+  border-radius: 6px;
   overflow: hidden;
   border: 1px solid #2e2e5a;
 }
 .cost-bar {
   height: 100%;
-  background: linear-gradient(90deg, #5a6aff, #a040ff);
-  border-radius: 5px;
-  transition: width .2s ease;
+  background: linear-gradient(90deg, #5a6aff, #c040ff);
+  border-radius: 6px;
+  transition: width .15s ease;
 }
 .cost-val {
   font-size: 13px;
   font-weight: 700;
-  color: #aaaadd;
-  width: 28px;
-  text-align: right;
+  color: #c8c8ff;
   flex-shrink: 0;
+  min-width: 72px;
+  text-align: right;
 }
 
+/* ── 出撃ボタン列 ───────────────────────── */
 .deploy-row {
   display: flex;
   gap: 8px;
@@ -132,59 +131,81 @@
 
 .deploy-btn {
   flex-shrink: 0;
-  width: 80px; height: 80px;
-  border-radius: 12px;
+  width: 88px;
+  border-radius: 10px;
   background: #0f0f2a;
   border: 2px solid #3a3a6a;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 4px 4px 5px;
+  gap: 1px;
   cursor: pointer;
-  transition: transform .22s cubic-bezier(0.34,1.56,0.64,1), border-color .12s, opacity .12s, box-shadow .12s;
-  font-size: 12px;
-  color: #ccc;
-  gap: 2px;
+  transition: transform .2s cubic-bezier(0.34,1.56,0.64,1),
+              border-color .12s, opacity .12s, box-shadow .12s;
   -webkit-tap-highlight-color: transparent;
   position: relative;
+  min-height: 80px;
 }
-/* 購入可能 (コスト足りる): 金色の光 */
+
+/* ポイント足りる → 金色グロー */
 .deploy-btn.ready {
   border-color: #f5c518;
-  box-shadow: 0 0 10px rgba(245,197,24,.55), inset 0 0 6px rgba(245,197,24,.12);
   background: #1a1600;
+  box-shadow: 0 0 12px rgba(245,197,24,.5), inset 0 0 8px rgba(245,197,24,.1);
 }
-/* 購入不可 (コスト不足): 暗め */
+/* ポイント不足 → 暗め */
 .deploy-btn.not-enough {
-  opacity: .35;
-  box-shadow: none;
-  border-color: #2a2a5a;
+  opacity: .32;
+  border-color: #252550;
 }
-.deploy-btn:active {
-  transform: scale(.80);
-  transition: transform .06s ease;
+/* クールタイム中 → 青みがかった暗め */
+.deploy-btn.on-cooldown {
+  opacity: .4;
+  border-color: #2a4a6a;
+  background: #0a0f1a;
 }
-.deploy-btn.not-enough:active { transform: none; }
-.deploy-btn.empty  { opacity: .22; cursor: default; }
-.deploy-btn.egg-deploy {
-  border-color: #5a4a20;
-  background: #1a160a;
-  color: #8a7a40;
+.deploy-btn:active          { transform: scale(.82); transition: transform .06s ease; }
+.deploy-btn.not-enough:active,
+.deploy-btn.on-cooldown:active { transform: none; }
+.deploy-btn.empty           { opacity: .2; cursor: default; }
+.deploy-btn.egg-slot        { border-color: #5a4a20; background: #1a140a; }
+
+.deploy-icon  { font-size: 24px; line-height: 1; }
+.deploy-canvas { display: block; }
+.deploy-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ccccee;
+  max-width: 80px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
-.deploy-btn canvas { display: block; }
 .deploy-cost {
   font-size: 11px;
   font-weight: 700;
-  color: #aaaacc;
+  color: #8888cc;
   line-height: 1;
 }
-.deploy-btn.ready .deploy-cost { color: #f5c518; }
-.deploy-btn.not-enough .deploy-cost { color: #5a5a7a; }
+.deploy-btn.ready      .deploy-cost { color: #f5c518; }
+.deploy-btn.not-enough .deploy-cost { color: #4a4a7a; }
+/* クールタイム残秒 */
+.deploy-cd {
+  font-size: 13px;
+  font-weight: 900;
+  color: #88aaff;
+  line-height: 1;
+  min-height: 15px;
+}
 
+/* ── バトルオーバーレイ ─────────────────── */
 .battle-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0,0,0,.8);
+  background: rgba(0,0,0,.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -195,19 +216,18 @@
 
 .overlay-box {
   text-align: center;
-  padding: 40px 32px;
+  padding: 36px 32px;
   background: #141428;
-  border-radius: 24px;
+  border-radius: 20px;
   border: 2px solid #3a3a6a;
-  min-width: 240px;
+  min-width: 220px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.7);
+  gap: 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.8);
 }
-
 .overlay-result {
-  font-size: 48px;
+  font-size: 44px;
   font-weight: 900;
   line-height: 1;
 }

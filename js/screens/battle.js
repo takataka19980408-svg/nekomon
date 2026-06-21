@@ -8,9 +8,11 @@ import { drawMonster } from '../render/monsterSprites.js';
 
 let CW = 800, CH = 300;
 let GROUND_Y, ALLY_BASE_X, ENEMY_BASE_X, MON_RADIUS;
-const COST_REGEN = 3;
-const MAX_COST   = 100;
-const BASE_HP    = 10000;
+
+const COST_REGEN    = 20;   // ポイント/秒
+const MAX_COST      = 500;  // 最大ポイント
+const BASE_HP       = 10000;
+const SLOT_COOLDOWN = 5;    // 出撃後クールタイム(秒)
 
 let _raf = null;
 let _bs  = null;
@@ -42,10 +44,10 @@ export function mount(el, params) {
       </div>
       <canvas id="battle-canvas"></canvas>
       <div class="battle-bottom">
-        <div class="battle-cost">
-          <span class="cost-label">コスト</span>
+        <div class="battle-cost-row">
+          <span class="cost-label">ポイント</span>
           <div class="cost-bar-wrap"><div class="cost-bar" id="cost-bar"></div></div>
-          <span class="cost-val" id="cost-val"></span>
+          <span class="cost-val" id="cost-val">0 / ${MAX_COST}</span>
         </div>
         <div class="deploy-row" id="deploy-row"></div>
       </div>
@@ -92,29 +94,32 @@ function initSizes() {
   _canvas.width  = CW;
   _canvas.height = CH;
   GROUND_Y     = CH - 52;
-  ALLY_BASE_X  = CW - 52;
-  ENEMY_BASE_X = 52;
+  ALLY_BASE_X  = CW - 52;  // 味方拠点: 右
+  ENEMY_BASE_X = 52;        // 敵拠点: 左
   MON_RADIUS   = Math.max(20, Math.min(32, CH * 0.1));
 }
 
 function buildBattleState(quest) {
+  const s = getState();
   return {
     quest,
     time: 0,
-    cost: MAX_COST, costFrac: MAX_COST,
-    allyBase:   { hp: BASE_HP, maxHp: BASE_HP },
-    enemyBase:  { hp: quest.enemyBaseHp, maxHp: quest.enemyBaseHp },
-    allies:     [],
-    enemies:    [],
-    spawnQueue: buildSpawnQueue(quest),
-    particles:  [],
-    result:     null,
+    cost: 0, costFrac: 0,
+    allyBase:  { hp: BASE_HP, maxHp: BASE_HP },
+    enemyBase: { hp: quest.enemyBaseHp, maxHp: quest.enemyBaseHp },
+    allies:    [],
+    enemies:   [],
+    spawnQueue:    buildSpawnQueue(quest),
+    nextAutoSpawn: 3,
+    particles: [],
+    cooldowns: new Array(s.party.length).fill(0),
+    result:    null,
   };
 }
 
 function buildSpawnQueue(quest) {
   const q = [];
-  quest.enemyWaves.forEach(w => {
+  (quest.enemyWaves ?? []).forEach(w => {
     for (let i = 0; i < w.count; i++)
       q.push({ enemyId: w.enemyId, at: w.spawnAt + i * w.interval });
   });
@@ -124,18 +129,35 @@ function buildSpawnQueue(quest) {
 function tick(dt) {
   if (_bs.result) return;
   _bs.time += dt;
+
   _bs.costFrac = Math.min(_bs.costFrac + COST_REGEN * dt, MAX_COST);
   _bs.cost = _bs.costFrac | 0;
+
+  for (let i = 0; i < _bs.cooldowns.length; i++) {
+    if (_bs.cooldowns[i] > 0) _bs.cooldowns[i] = Math.max(0, _bs.cooldowns[i] - dt);
+  }
+
   while (_bs.spawnQueue.length && _bs.spawnQueue[0].at <= _bs.time)
     spawnEnemy(_bs.spawnQueue.shift().enemyId);
+
+  if (_bs.spawnQueue.length === 0 && _bs.time >= _bs.nextAutoSpawn) {
+    const fallbackId = _bs.quest.enemyWaves?.[0]?.enemyId;
+    if (fallbackId) spawnEnemy(fallbackId);
+    _bs.nextAutoSpawn = _bs.time + 3;
+  }
+
   _bs.allies.forEach(u  => tickUnit(u, dt, _bs.enemies, _bs.enemyBase, false));
   _bs.enemies.forEach(u => tickUnit(u, dt, _bs.allies,  _bs.allyBase,  true));
+
   _bs.allies  = _bs.allies.filter(u => u.hp > 0);
   _bs.enemies = _bs.enemies.filter(u => u.hp > 0);
+
   _bs.particles = _bs.particles.filter(p => { p.life -= dt; return p.life > 0; });
   _bs.particles.forEach(p => { p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 300*dt; });
+
   if (_bs.enemyBase.hp <= 0) _bs.result = 'win';
   if (_bs.allyBase.hp  <= 0) _bs.result = 'lose';
+
   updateHUD();
 }
 
@@ -143,14 +165,17 @@ function tickUnit(u, dt, foes, foeBase, isEnemy) {
   u.attackTimer = Math.max(0, u.attackTimer - dt);
   const dir      = isEnemy ? 1 : -1;
   const foeBaseX = isEnemy ? ALLY_BASE_X : ENEMY_BASE_X;
+
   let target = null, minDist = Infinity;
   foes.forEach(f => {
     if (f.hp <= 0) return;
     const d = Math.abs(u.x - f.x);
     if (d < minDist) { minDist = d; target = f; }
   });
+
   const inRangeFoe  = target && minDist <= u.range;
   const inRangeBase = Math.abs(u.x - foeBaseX) <= u.range;
+
   if (inRangeFoe || inRangeBase) {
     if (u.attackTimer === 0) {
       dealDamage(u, inRangeFoe ? target : null, foeBase, isEnemy);
@@ -179,7 +204,7 @@ function spawnEnemy(enemyId) {
   if (!def) return;
   _bs.enemies.push({
     attribute: def.attribute, type: def.type ?? 'attack', form: def.form ?? 1,
-    x: ENEMY_BASE_X + 38,
+    x: ENEMY_BASE_X + 40,
     hp: def.stats.hp, maxHp: def.stats.hp,
     attack: def.stats.attack, defense: def.stats.defense,
     attackInterval: def.stats.attackInterval,
@@ -190,7 +215,9 @@ function spawnEnemy(enemyId) {
 }
 
 export function deployMonster(slotIdx) {
-  if (!_bs) return false;
+  if (!_bs || _bs.result) return false;
+  if (_bs.cooldowns[slotIdx] > 0) return false;
+
   const s = getState();
   const slot = s.party[slotIdx];
   if (!slot || slot.type !== 'monster') return false;
@@ -198,13 +225,16 @@ export function deployMonster(slotIdx) {
   const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
   if (!def) return false;
   if (_bs.cost < def.stats.cost) return false;
+
   const scale = monsterStatScale(inst.level);
   _bs.costFrac -= def.stats.cost;
   _bs.cost = _bs.costFrac | 0;
+  _bs.cooldowns[slotIdx] = SLOT_COOLDOWN;
+
   _bs.allies.push({
     instanceId: inst.instanceId,
     attribute: def.attribute, type: def.type, form: def.form,
-    x: ALLY_BASE_X - 38,
+    x: ALLY_BASE_X - 40,
     hp: Math.round(def.stats.hp * scale), maxHp: Math.round(def.stats.hp * scale),
     attack: Math.round(def.stats.attack * scale), defense: Math.round(def.stats.defense * scale),
     attackInterval: def.stats.attackInterval,
@@ -213,7 +243,6 @@ export function deployMonster(slotIdx) {
     skillChargeTime: SKILL_MAP[def.skillId]?.chargeTime ?? 20,
     color: def.color, name: def.name,
   });
-  updateDeployUI();
   return true;
 }
 
@@ -228,9 +257,12 @@ function draw() {
 }
 
 const BG_COLORS = {
-  forest: ['#0a2a0a','#1a4a1a'], lake: ['#060e20','#0a1a40'],
-  volcano: ['#2a0800','#5a1500'], sanctuary: ['#1a1a00','#3a3a00'],
-  underworld: ['#0a000a','#200020'], dragons_nest: ['#1a0800','#3a1500'],
+  forest:       ['#0a2a0a','#1a4a1a'],
+  lake:         ['#060e20','#0a1a40'],
+  volcano:      ['#2a0800','#5a1500'],
+  sanctuary:    ['#1a1a00','#3a3a00'],
+  underworld:   ['#0a000a','#200020'],
+  dragons_nest: ['#1a0800','#3a1500'],
 };
 
 function drawBackground(ctx) {
@@ -242,22 +274,19 @@ function drawBackground(ctx) {
   ctx.fillRect(0, GROUND_Y, CW, CH - GROUND_Y);
   ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CW, GROUND_Y); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  for (let i = 0; i < 5; i++) {
-    const mx = CW * (0.1 + i * 0.2), mh = CH * (0.18 + (i%2)*0.08);
-    ctx.beginPath(); ctx.moveTo(mx-mh*.8,GROUND_Y); ctx.lineTo(mx,GROUND_Y-mh); ctx.lineTo(mx+mh*.8,GROUND_Y); ctx.closePath(); ctx.fill();
-  }
 }
 
 function drawBases(ctx) {
   const eR = _bs.enemyBase.hp / _bs.enemyBase.maxHp;
   const aR = _bs.allyBase.hp  / _bs.allyBase.maxHp;
   const bW = 44, bH = 68;
+
   ctx.fillStyle = '#7a1a1a';
   ctx.beginPath(); roundRect(ctx, ENEMY_BASE_X-bW/2, GROUND_Y-bH, bW, bH, 6); ctx.fill();
   drawHpBar(ctx, ENEMY_BASE_X-bW/2, GROUND_Y-bH-10, bW, eR, '#e74c3c');
   ctx.font = `${bW*.48}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('☠', ENEMY_BASE_X, GROUND_Y-bH*.5);
+
   ctx.fillStyle = '#1a3a7a';
   ctx.beginPath(); roundRect(ctx, ALLY_BASE_X-bW/2, GROUND_Y-bH, bW, bH, 6); ctx.fill();
   drawHpBar(ctx, ALLY_BASE_X-bW/2, GROUND_Y-bH-10, bW, aR, '#27ae60');
@@ -268,7 +297,8 @@ function drawBases(ctx) {
 function drawUnit(ctx, u, isEnemy) {
   const y = GROUND_Y - MON_RADIUS;
   drawMonster(ctx, u.x, y, MON_RADIUS, u, !isEnemy);
-  drawHpBar(ctx, u.x-MON_RADIUS, y-MON_RADIUS-9, MON_RADIUS*2, u.hp/u.maxHp, isEnemy ? '#e74c3c' : '#27ae60');
+  drawHpBar(ctx, u.x-MON_RADIUS, y-MON_RADIUS-9, MON_RADIUS*2, u.hp/u.maxHp,
+    isEnemy ? '#e74c3c' : '#27ae60');
   if (!isEnemy && u.skillGauge >= 100) {
     ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.arc(u.x, y, MON_RADIUS+6, 0, Math.PI*2); ctx.stroke();
@@ -307,14 +337,14 @@ function roundRect(ctx, x, y, w, h, r) {
 function updateHUD() {
   if (!_el || !_bs) return;
   const g = id => _el.querySelector(id);
-  const setW = (el, v) => el && (el.style.width = `${v*100}%`);
+  const setW = (el, v) => el && (el.style.width = `${Math.max(0, Math.min(1, v)) * 100}%`);
   setW(g('#hud-ally-hp'),  _bs.allyBase.hp  / _bs.allyBase.maxHp);
   setW(g('#hud-enemy-hp'), _bs.enemyBase.hp / _bs.enemyBase.maxHp);
   setW(g('#cost-bar'), _bs.cost / MAX_COST);
   if (g('#hud-ally-hp-text'))  g('#hud-ally-hp-text').textContent  = _bs.allyBase.hp;
   if (g('#hud-enemy-hp-text')) g('#hud-enemy-hp-text').textContent = _bs.enemyBase.hp;
   if (g('#hud-time')) g('#hud-time').textContent = `${_bs.time|0}s`;
-  if (g('#cost-val')) g('#cost-val').textContent  = _bs.cost;
+  if (g('#cost-val')) g('#cost-val').textContent  = `${_bs.cost} / ${MAX_COST}`;
   updateDeployUI();
 }
 
@@ -322,22 +352,42 @@ function buildDeployUI(el) {
   const s = getState();
   const row = el.querySelector('#deploy-row');
   if (!row) return;
+
   row.innerHTML = s.party.map((slot, i) => {
-    if (!slot.type) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
-    if (slot.type === 'egg') return `<div class="deploy-btn egg-deploy">🥚<br><small>孵化用</small></div>`;
+    if (!slot || !slot.type) {
+      return `<div class="deploy-btn empty">
+        <span class="deploy-icon">＋</span>
+        <span class="deploy-name">空き</span>
+      </div>`;
+    }
+    if (slot.type === 'egg') {
+      return `<div class="deploy-btn egg-slot">
+        <span class="deploy-icon">🥚</span>
+        <span class="deploy-name">育成中</span>
+        <span class="deploy-cost">出撃不可</span>
+      </div>`;
+    }
     const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
     const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-    if (!def) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
+    if (!def) return `<div class="deploy-btn empty"><span class="deploy-name">不明</span></div>`;
+
     return `<div class="deploy-btn not-enough" data-slot="${i}" data-cost="${def.stats.cost}">
-      <canvas class="deploy-canvas" data-attr="${def.attribute}" data-type="${def.type}" data-form="${def.form}" data-color="${def.color}" width="52" height="52"></canvas>
-      <span class="deploy-cost">${def.stats.cost}pt</span>
+      <canvas class="deploy-canvas"
+        data-attr="${def.attribute}"
+        data-type="${def.type ?? 'attack'}"
+        data-form="${def.form ?? 1}"
+        data-color="${def.color}"
+        width="44" height="44"></canvas>
+      <span class="deploy-name">${def.name}</span>
+      <span class="deploy-cost" id="dcost-${i}">${def.stats.cost}pt</span>
+      <span class="deploy-cd"   id="dcd-${i}"></span>
     </div>`;
   }).join('');
 
   row.querySelectorAll('.deploy-canvas').forEach(c => {
     const ctx2 = c.getContext('2d');
     const { attr, type, form, color } = c.dataset;
-    drawMonster(ctx2, 26, 32, 20, { attribute: attr, type, form: +form, color }, true);
+    drawMonster(ctx2, 22, 26, 16, { attribute: attr, type, form: +form, color }, true);
   });
 
   row.querySelectorAll('.deploy-btn[data-slot]').forEach(btn => {
@@ -349,14 +399,25 @@ function updateDeployUI() {
   if (!_el || !_bs) return;
   const s = getState();
   _el.querySelectorAll('.deploy-btn[data-slot]').forEach(btn => {
-    const slot = s.party[+btn.dataset.slot];
+    const idx = +btn.dataset.slot;
+    const slot = s.party[idx];
     if (!slot || slot.type !== 'monster') return;
     const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
     const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
     if (!def) return;
+
+    const cd        = _bs.cooldowns[idx] ?? 0;
+    const onCD      = cd > 0;
     const canAfford = _bs.cost >= def.stats.cost;
-    btn.classList.toggle('ready',      canAfford);
-    btn.classList.toggle('not-enough', !canAfford);
+
+    btn.classList.toggle('ready',       canAfford && !onCD);
+    btn.classList.toggle('not-enough',  !canAfford && !onCD);
+    btn.classList.toggle('on-cooldown', onCD);
+
+    const cdEl   = document.getElementById(`dcd-${idx}`);
+    const costEl = document.getElementById(`dcost-${idx}`);
+    if (cdEl)   cdEl.textContent   = onCD ? `${Math.ceil(cd)}s` : '';
+    if (costEl) costEl.textContent = onCD ? '' : `${def.stats.cost}pt`;
   });
 }
 
