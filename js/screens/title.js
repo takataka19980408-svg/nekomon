@@ -24,8 +24,7 @@ export function mount(el) {
   `;
   el.querySelector('#btn-start').addEventListener('click', () => {
     const s = getState();
-    const isFirst = s.monsters.length === 0 && s.eggs.length === 0;
-    navigateTo(isFirst ? 'starter' : 'home');
+    navigateTo(s.monsters.length === 0 ? 'starter' : 'home');
   });
 }
 
