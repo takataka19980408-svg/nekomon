@@ -78,7 +78,7 @@ function showHatchAnim(el, result, cb) {
   overlay.innerHTML = `
     <div class="hatch-anim-box">
       <div class="hatch-burst">${ATTR_EMOJI[def?.attribute] ?? '⭐'}</div>
-      <div class="hatch-anim-name">${def?.name ?? '不明'}が誤した！</div>
+      <div class="hatch-anim-name">${def?.name ?? '不明'}が誕生した！</div>
       <button class="btn btn-primary" id="hatch-ok">ボックスへ</button>
     </div>
   `;
