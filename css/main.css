@@ -1,277 +1,137 @@
-/* main.css — グローバルスタイル・テーマカラー・共通コンポーネント */
-
-/* ─── リセット ──────────────────────────────────── */
+/* main.css — global styles */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   position: fixed; inset: 0;
   width: 100%; height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow: hidden; overscroll-behavior: none;
   font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
-  background: #0d0d1a;
-  color: #eee;
+  background: #0d0d1a; color: #eee;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
-/* ─── 横画面誦導 ────────────────────────────────── */
-/* orientation-locked クラスがある = APIでロック済み → 誦導不要 */
-#rotate-notice { display: none; }
-
-@media (orientation: portrait) {
-  html:not(.orientation-locked) #rotate-notice {
-    display: flex;
-    position: fixed; inset: 0; z-index: 9999;
-    background: #0d0d1a;
-    flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 20px;
-  }
-  html:not(.orientation-locked) #app { visibility: hidden; }
-}
-.rotate-icon {
-  font-size: 72px;
-  animation: rotateHint 2.8s ease-in-out infinite;
-}
-@keyframes rotateHint {
-  0%,30%  { transform: rotate(0deg); }
-  55%,85% { transform: rotate(90deg); }
-  100%    { transform: rotate(90deg); }
-}
-.rotate-text { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: 2px; }
-.rotate-sub  { font-size: 13px; color: var(--text-sub); }
-
-/* ─── カラー変数 ────────────────────────────────── */
 :root {
-  --bg:       #0d0d1a;
-  --bg2:      #141428;
-  --bg3:      #1e1e3a;
-  --border:   #2e2e5a;
-  --text:     #e8e8f0;
-  --text-sub: #8888aa;
-  --primary:  #5a6aff;
-  --primary-h:#7a8aff;
-  --gold:     #f5c518;
-  --red:      #e74c3c;
-  --green:    #27ae60;
-  --radius:   12px;
-  --shadow:   0 4px 20px rgba(0,0,0,0.5);
+  --bg:  #0d0d1a; --bg2: #141428; --bg3: #1e1e3a;
+  --bdr: #2e2e5a; --txt: #e8e8f0; --sub: #8888aa;
+  --pri: #5a6aff; --gold: #f5c518;
+  --red: #e74c3c; --grn: #27ae60;
+  --r: 12px;
 }
 
-/* ─── 画面コンテナ ─────────────────────────────────── */
-#app {
-  width: 100%; height: 100%;
-  position: relative;
-  overflow: hidden;
+/* rotate notice */
+#rotate-notice {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg); flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; font-size: 18px; font-weight: 700;
+}
+.rotate-icon { font-size: 64px; animation: spin 3s ease-in-out infinite; }
+@keyframes spin {
+  0%,40%  { transform: rotate(0deg); }
+  60%,100%{ transform: rotate(90deg); }
+}
+@media (orientation: portrait) {
+  html:not(.locked) #rotate-notice { display: flex; }
+  html:not(.locked) #app { visibility: hidden; }
 }
 
+/* app container */
+#app { width: 100%; height: 100%; position: relative; overflow: hidden; }
 .screen {
-  position: absolute;
-  inset: 0;
-  display: none;
-  overflow-y: auto;
-  overflow-x: hidden;
+  position: absolute; inset: 0;
+  display: none; overflow-y: auto; overflow-x: hidden;
   background: var(--bg);
 }
-/* 画面切り替わり: 0.42s フェードイン */
-.screen.active {
-  display: block;
-  animation: screenFadeIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-@keyframes screenFadeIn {
-  from { opacity: 0; transform: translateY(22px); }
+.screen.active { display: block; animation: sIn .3s ease both; }
+@keyframes sIn {
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── ボタン ──────────────────────────────────────── */
+/* buttons */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 14px 28px;
-  border: none;
-  border-radius: 50px;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform .24s cubic-bezier(0.34, 1.56, 0.64, 1),
-              opacity   .20s ease,
-              box-shadow .22s ease;
-  letter-spacing: .5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 13px 26px;
+  border: none; border-radius: 50px;
+  font-size: 15px; font-weight: 700; cursor: pointer;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), opacity .15s;
   -webkit-tap-highlight-color: transparent;
 }
-.btn:active {
-  transform: scale(0.86);
-  opacity: 0.78;
-  transition: transform .06s ease, opacity .06s ease;
-}
+.btn:active { transform: scale(0.88); opacity: 0.8; transition: transform .06s ease; }
+.btn-primary { background: linear-gradient(135deg,var(--pri),#8040ff); color:#fff; box-shadow:0 4px 15px rgba(90,106,255,.4); }
+.btn-outline  { background: transparent; border: 2px solid var(--pri); color: var(--pri); }
+.btn-lg { padding: 16px 36px; font-size: 17px; }
 
-.btn-primary {
-  background: linear-gradient(135deg, var(--primary), #8040ff);
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(90,106,255,.4);
+/* header */
+.hdr {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 15px; background: var(--bg2);
+  border-bottom: 1px solid var(--bdr);
+  position: sticky; top: 0; z-index: 10;
 }
-.btn-primary:hover { box-shadow: 0 6px 20px rgba(90,106,255,.6); }
-
-.btn-outline {
-  background: transparent;
-  border: 2px solid var(--primary);
-  color: var(--primary);
-}
-
-.btn-lg  { padding: 16px 36px; font-size: 18px; }
-.btn-xl  { padding: 18px 44px; font-size: 20px; }
-
-/* ─── 共通ヘッダー ─────────────────────────────────── */
-.screen-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.screen-header h2 {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text);
-}
+.hdr h2 { font-size: 16px; font-weight: 700; }
 .btn-back {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  background: var(--bg3);
-  color: var(--text);
-  font-size: 16px;
-  cursor: pointer;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 2px solid var(--bdr); background: var(--bg3);
+  color: var(--txt); font-size: 15px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  transition: background .18s, transform .22s cubic-bezier(0.34,1.56,0.64,1);
-  flex-shrink: 0;
+  transition: background .15s, transform .2s cubic-bezier(.34,1.56,.64,1);
 }
-.btn-back:active { background: var(--primary); transform: scale(0.88); transition: transform .06s ease, background .08s; }
+.btn-back:active { background: var(--pri); transform: scale(0.88); }
 
-/* ─── セクションラベル ────────────────────────────────── */
-.section-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-sub);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  padding: 14px 16px 6px;
+/* card */
+.card {
+  background: var(--bg2); border: 2px solid var(--bdr);
+  border-radius: var(--r); padding: 14px;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
 }
+.card:active { transform: scale(.96); }
 
-/* ─── タブバー ──────────────────────────────────────── */
-.tab-bar {
-  display: flex;
-  padding: 8px;
-  gap: 8px;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
+/* stub */
+.stub-wrap {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; gap: 14px;
+  color: var(--sub); font-size: 14px; text-align: center;
 }
-.tab-btn {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: 8px;
-  background: var(--bg3);
-  color: var(--text-sub);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .18s, color .18s, transform .22s cubic-bezier(0.34,1.56,0.64,1);
-}
-.tab-btn:active { transform: scale(0.91); transition: transform .06s ease; }
-.tab-btn.active {
-  background: var(--primary);
-  color: #fff;
-}
+.stub-icon { font-size: 52px; }
 
-/* ─── フィルターバー ────────────────────────────────── */
-.filter-bar {
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  overflow-x: auto;
-  background: var(--bg2);
-  border-bottom: 1px solid var(--border);
+/* ── Home ── */
+.home-wrap {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; padding: 24px; gap: 28px;
 }
-.filter-btn {
-  flex-shrink: 0;
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--bg3);
-  color: var(--text-sub);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background .18s, color .18s, transform .22s cubic-bezier(0.34,1.56,0.64,1);
+.home-logo { text-align: center; }
+.home-egg  { font-size: 68px; animation: fl 2.2s ease-in-out infinite; }
+@keyframes fl { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+.home-logo h1 {
+  font-size: 34px; font-weight: 900; letter-spacing: 3px;
+  color: var(--txt); margin-top: 6px;
 }
-.filter-btn:active { transform: scale(0.91); transition: transform .06s ease; }
-.filter-btn.active {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-}
+.home-logo p { font-size: 13px; color: var(--sub); letter-spacing: 1px; margin-top: 3px; }
+.home-nav { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; }
+.home-row { display: flex; gap: 10px; }
+.home-row .btn { flex: 1; font-size: 13px; padding: 12px 10px; }
 
-/* ─── カード共通 ──────────────────────────────────────── */
-.box-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: var(--bg2);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  position: relative;
-  transition: transform .22s cubic-bezier(0.34,1.56,0.64,1);
-}
-.box-card:active { transform: scale(.94); transition: transform .06s ease; }
+/* ── Quest ── */
+.quest-list { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.q-card { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.q-icon { font-size: 30px; flex-shrink: 0; width: 44px; text-align: center; }
+.q-info { flex: 1; }
+.q-name { font-size: 14px; font-weight: 700; }
+.q-desc { font-size: 11px; color: var(--sub); margin-top: 2px; }
+.q-btn  { flex-shrink: 0; padding: 9px 16px; font-size: 13px; }
 
-.box-card-icon {
-  width: 52px; height: 52px;
-  border-radius: 12px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 28px;
-  flex-shrink: 0;
+/* ── Result ── */
+.result-wrap {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; padding: 24px; gap: 18px; text-align: center;
 }
-.box-card-name  { font-size: 15px; font-weight: 700; color: var(--text); }
-.box-card-sub   { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
-.box-card-lv    { font-size: 13px; color: var(--gold); margin-top: 4px; font-weight: 700; }
-.box-card-badge {
-  position: absolute; top: 8px; right: 8px;
-  background: var(--primary);
-  color: #fff; font-size: 11px; font-weight: 700;
-  padding: 3px 8px; border-radius: 10px;
-}
-
-/* ─── 空メッセージ ─────────────────────────────────── */
-.empty-msg {
-  text-align: center;
-  color: var(--text-sub);
-  padding: 40px 20px;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-/* ─── アニメーション ────────────────────────────────── */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-8px); }
-}
-.float-anim { animation: float 2s ease-in-out infinite; }
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.fade-in { animation: fadeInUp .35s ease both; }
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.08); }
-}
-.pulse-anim { animation: pulse 1s ease infinite; }
+.result-icon  { font-size: 76px; }
+.result-title { font-size: 44px; font-weight: 900; }
+.result-title.win  { color: var(--gold); text-shadow: 0 0 20px rgba(245,197,24,.4); }
+.result-title.lose { color: var(--red);  text-shadow: 0 0 20px rgba(231,76,60,.4); }
+.result-msg  { font-size: 15px; color: var(--sub); }
+.result-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }

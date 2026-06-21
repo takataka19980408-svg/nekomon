@@ -5,31 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0d0d1a">
   <title>NEKOMON</title>
-  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/screens.css">
   <link rel="stylesheet" href="css/battle.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F95A;</text></svg>">
 </head>
 <body>
 <div id="rotate-notice">
   <div class="rotate-icon">📱</div>
-  <p class="rotate-text">端末を横向きにしてください</p>
-  <p class="rotate-sub">NEKOMON は横画面専用ゲームです</p>
+  <p>端末を横向きにしてください</p>
 </div>
 <div id="app">
-  <div id="screen-title"   class="screen"></div>
-  <div id="screen-starter" class="screen"></div>
-  <div id="screen-home"    class="screen"></div>
-  <div id="screen-quest"   class="screen"></div>
-  <div id="screen-formation" class="screen"></div>
-  <div id="screen-battle"  class="screen" style="overflow:hidden;"></div>
-  <div id="screen-result"  class="screen"></div>
-  <div id="screen-box"     class="screen"></div>
-  <div id="screen-hatch"   class="screen"></div>
+  <div id="screen-home"         class="screen"></div>
+  <div id="screen-quest"        class="screen"></div>
+  <div id="screen-battle"       class="screen" style="overflow:hidden"></div>
+  <div id="screen-result"       class="screen"></div>
+  <div id="screen-box"          class="screen"></div>
+  <div id="screen-eggs"         class="screen"></div>
+  <div id="screen-hatch"        class="screen"></div>
   <div id="screen-encyclopedia" class="screen"></div>
 </div>
 <script type="module" src="js/main.js"></script>

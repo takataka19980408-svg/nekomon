@@ -1,36 +1,30 @@
-import { registerScreen, navigateTo } from './core/router.js';
+import { register, go } from './core/router.js';
 
-// ── ビューポート高さ補正 (アドレスバー対策) ──
-function setAppHeight() {
-  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+function setVH() {
+  document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
 }
-setAppHeight();
-window.addEventListener('resize', setAppHeight);
-window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 200));
+setVH();
+window.addEventListener('resize', setVH);
+window.addEventListener('orientationchange', () => setTimeout(setVH, 200));
 
-// ── 横画面ロック ──
-async function tryLandscape() {
+async function lockLandscape() {
   if (!screen.orientation?.lock) return;
   try {
     await screen.orientation.lock('landscape');
-    document.documentElement.classList.add('orientation-locked');
-  } catch {
-    // ロック不可 — CSS (@media portrait) が誘導画面を制御
-  }
+    document.documentElement.classList.add('locked');
+  } catch { /* CSS @media portrait handles fallback */ }
 }
-tryLandscape();
-document.addEventListener('touchstart', tryLandscape, { once: true });
-document.addEventListener('click',      tryLandscape, { once: true });
+lockLandscape();
+document.addEventListener('touchstart', lockLandscape, { once: true });
+document.addEventListener('click',      lockLandscape, { once: true });
 
-registerScreen('title',        () => import('./screens/title.js'));
-registerScreen('starter',      () => import('./screens/starter.js'));
-registerScreen('home',         () => import('./screens/home.js'));
-registerScreen('quest',        () => import('./screens/quest.js'));
-registerScreen('formation',    () => import('./screens/formation.js'));
-registerScreen('battle',       () => import('./screens/battle.js'));
-registerScreen('result',       () => import('./screens/result.js'));
-registerScreen('box',          () => import('./screens/box.js'));
-registerScreen('hatch',        () => import('./screens/hatch.js'));
-registerScreen('encyclopedia', () => import('./screens/encyclopedia.js'));
+register('home',         () => import('./screens/home.js'));
+register('quest',        () => import('./screens/quest.js'));
+register('battle',       () => import('./screens/battle.js'));
+register('result',       () => import('./screens/result.js'));
+register('box',          () => import('./screens/box.js'));
+register('eggs',         () => import('./screens/eggs.js'));
+register('hatch',        () => import('./screens/hatch.js'));
+register('encyclopedia', () => import('./screens/encyclopedia.js'));
 
-navigateTo('title');
+go('home');

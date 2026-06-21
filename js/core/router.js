@@ -1,31 +1,18 @@
-// router.js — 画面遷移管理。各screenモジュールは mount(el) と unmount() を実裃する。
+const _reg = {};
+let _mod = null;
 
-let currentScreen = null;
-let currentModule = null;
-
-const SCREENS = {};
-
-export function registerScreen(id, moduleFactory) {
-  SCREENS[id] = moduleFactory;
+export function register(id, loader) {
+  _reg[id] = loader;
 }
 
-export async function navigateTo(screenId, params = {}) {
-  if (currentModule?.unmount) currentModule.unmount();
-
-  // 全画面を隠す
+export async function go(id, params = {}) {
+  _mod?.unmount?.();
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-
-  const factory = SCREENS[screenId];
-  if (!factory) { console.error('Unknown screen:', screenId); return; }
-
-  const el = document.getElementById(`screen-${screenId}`);
-  if (!el) { console.error('Missing DOM for screen:', screenId); return; }
-
-  currentScreen = screenId;
+  const factory = _reg[id];
+  if (!factory) { console.error('[router] unknown screen:', id); return; }
+  const el = document.getElementById(`screen-${id}`);
+  if (!el)      { console.error('[router] missing DOM for:', id); return; }
   el.classList.add('active');
-
-  currentModule = await factory();
-  if (currentModule?.mount) currentModule.mount(el, params);
+  _mod = await factory();
+  _mod?.mount?.(el, params);
 }
-
-export function getCurrentScreen() { return currentScreen; }
