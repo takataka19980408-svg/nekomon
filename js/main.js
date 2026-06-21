@@ -1,17 +1,21 @@
 import { registerScreen, navigateTo } from './core/router.js';
 
-// Fix 100vh on mobile (address bar eats viewport)
+// ── ビューポート高さ補正 (アドレスバー対策) ──
 function setAppHeight() {
   document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
 }
 setAppHeight();
 window.addEventListener('resize', setAppHeight);
-window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 150));
+window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 200));
 
-// Auto-lock to landscape on Android/Chrome; iOS requires PWA install
-function tryLandscape() {
-  if (screen.orientation?.lock) {
-    screen.orientation.lock('landscape').catch(() => {});
+// ── 横画面ロック ──
+async function tryLandscape() {
+  if (!screen.orientation?.lock) return;
+  try {
+    await screen.orientation.lock('landscape');
+    document.documentElement.classList.add('orientation-locked');
+  } catch {
+    // ロック不可 — CSS (@media portrait) が誘導画面を制御
   }
 }
 tryLandscape();

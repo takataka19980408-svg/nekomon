@@ -1,10 +1,12 @@
 /* main.css — グローバルスタイル・テーマカラー・共通コンポーネント */
 
-/* ─── リセット ──────────────────────────────────────── */
+/* ─── リセット ──────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
+  position: fixed; inset: 0;
   width: 100%; height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
   background: #0d0d1a;
   color: #eee;
@@ -12,29 +14,34 @@ html, body {
   user-select: none;
 }
 
-/* ─── 横画面強制・回転通知 ─────────────────── */
-#rotate-notice {
-  display: none;
-  position: fixed; inset: 0; z-index: 9999;
-  background: #0d0d1a;
-  flex-direction: column; align-items: center; justify-content: center; gap: 16px;
-}
-@media (orientation: portrait) { #rotate-notice { display: flex; } }
+/* ─── 横画面誦導 ────────────────────────────────── */
+/* orientation-locked クラスがある = APIでロック済み → 誦導不要 */
+#rotate-notice { display: none; }
 
+@media (orientation: portrait) {
+  html:not(.orientation-locked) #rotate-notice {
+    display: flex;
+    position: fixed; inset: 0; z-index: 9999;
+    background: #0d0d1a;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+  }
+  html:not(.orientation-locked) #app { visibility: hidden; }
+}
 .rotate-icon {
-  font-size: 64px;
+  font-size: 72px;
   animation: rotateHint 2.8s ease-in-out infinite;
-  filter: drop-shadow(0 0 12px rgba(90,106,255,.6));
 }
 @keyframes rotateHint {
   0%,30%  { transform: rotate(0deg); }
-  55%,80% { transform: rotate(90deg); }
+  55%,85% { transform: rotate(90deg); }
   100%    { transform: rotate(90deg); }
 }
-.rotate-text { font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: 2px; }
-.rotate-sub  { font-size: 12px; color: var(--text-sub); }
+.rotate-text { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: 2px; }
+.rotate-sub  { font-size: 13px; color: var(--text-sub); }
 
-/* ─── カラー変数 ──────────────────────────────────────── */
+/* ─── カラー変数 ────────────────────────────────── */
 :root {
   --bg:       #0d0d1a;
   --bg2:      #141428;
@@ -51,7 +58,7 @@ html, body {
   --shadow:   0 4px 20px rgba(0,0,0,0.5);
 }
 
-/* ─── 画面コンテナ ─────────────────────────────────────── */
+/* ─── 画面コンテナ ─────────────────────────────────── */
 #app {
   width: 100%; height: 100%;
   position: relative;
@@ -76,7 +83,7 @@ html, body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ─── ボタン ──────────────────────────────────────────── */
+/* ─── ボタン ──────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -88,14 +95,12 @@ html, body {
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
-  /* リリース時にバウンス感 */
   transition: transform .24s cubic-bezier(0.34, 1.56, 0.64, 1),
               opacity   .20s ease,
               box-shadow .22s ease;
   letter-spacing: .5px;
   -webkit-tap-highlight-color: transparent;
 }
-/* 押下時は素早く、大きめに縮む */
 .btn:active {
   transform: scale(0.86);
   opacity: 0.78;
@@ -118,7 +123,7 @@ html, body {
 .btn-lg  { padding: 16px 36px; font-size: 18px; }
 .btn-xl  { padding: 18px 44px; font-size: 20px; }
 
-/* ─── 共通ヘッダー ──────────────────────────────────────── */
+/* ─── 共通ヘッダー ─────────────────────────────────── */
 .screen-header {
   display: flex;
   align-items: center;
@@ -149,7 +154,7 @@ html, body {
 }
 .btn-back:active { background: var(--primary); transform: scale(0.88); transition: transform .06s ease, background .08s; }
 
-/* ─── セクションラベル ──────────────────────────────────────── */
+/* ─── セクションラベル ────────────────────────────────── */
 .section-label {
   font-size: 12px;
   font-weight: 700;
@@ -159,7 +164,7 @@ html, body {
   padding: 14px 16px 6px;
 }
 
-/* ─── タブバー ──────────────────────────────────────────── */
+/* ─── タブバー ──────────────────────────────────────── */
 .tab-bar {
   display: flex;
   padding: 8px;
@@ -185,7 +190,7 @@ html, body {
   color: #fff;
 }
 
-/* ─── フィルターバー ──────────────────────────────────────── */
+/* ─── フィルターバー ────────────────────────────────── */
 .filter-bar {
   display: flex;
   gap: 6px;
@@ -212,7 +217,7 @@ html, body {
   border-color: var(--primary);
 }
 
-/* ─── カード共通 ────────────────────────────────────────── */
+/* ─── カード共通 ──────────────────────────────────────── */
 .box-card {
   display: flex;
   align-items: center;
@@ -243,7 +248,7 @@ html, body {
   padding: 3px 8px; border-radius: 10px;
 }
 
-/* ─── 空メッセージ ──────────────────────────────────────── */
+/* ─── 空メッセージ ─────────────────────────────────── */
 .empty-msg {
   text-align: center;
   color: var(--text-sub);
@@ -252,7 +257,7 @@ html, body {
   line-height: 1.6;
 }
 
-/* ─── アニメーション ──────────────────────────────────────── */
+/* ─── アニメーション ────────────────────────────────── */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-8px); }
