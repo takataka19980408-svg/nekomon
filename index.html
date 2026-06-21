@@ -8,50 +8,24 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0d0d1a">
   <title>NEKOMON</title>
-
-  <!-- スタイル -->
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/screens.css">
   <link rel="stylesheet" href="css/battle.css">
-
-  <!-- ファビコン -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F95A;</text></svg>">
 </head>
 <body>
-
 <div id="app">
-
-  <!-- タイトル -->
-  <div id="screen-title" class="screen"></div>
-
-  <!-- ホーム -->
-  <div id="screen-home" class="screen"></div>
-
-  <!-- クエスト選択 -->
-  <div id="screen-quest" class="screen"></div>
-
-  <!-- 編成 -->
+  <div id="screen-title"   class="screen"></div>
+  <div id="screen-starter" class="screen"></div>
+  <div id="screen-home"    class="screen"></div>
+  <div id="screen-quest"   class="screen"></div>
   <div id="screen-formation" class="screen"></div>
-
-  <!-- バトル -->
-  <div id="screen-battle" class="screen" style="overflow:hidden;"></div>
-
-  <!-- リザルト -->
-  <div id="screen-result" class="screen"></div>
-
-  <!-- ボックス -->
-  <div id="screen-box" class="screen"></div>
-
-  <!-- 孵化 -->
-  <div id="screen-hatch" class="screen"></div>
-
-  <!-- 図鑑 -->
+  <div id="screen-battle"  class="screen" style="overflow:hidden;"></div>
+  <div id="screen-result"  class="screen"></div>
+  <div id="screen-box"     class="screen"></div>
+  <div id="screen-hatch"   class="screen"></div>
   <div id="screen-encyclopedia" class="screen"></div>
-
 </div>
-
-<!-- ES Modules エントリ -->
 <script type="module" src="js/main.js"></script>
-
 </body>
 </html>

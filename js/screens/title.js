@@ -1,4 +1,5 @@
 import { navigateTo } from '../core/router.js';
+import { getState } from '../core/state.js';
 
 export function mount(el) {
   el.innerHTML = `
@@ -21,7 +22,11 @@ export function mount(el) {
       <p class="title-version">ver 0.1.0</p>
     </div>
   `;
-  el.querySelector('#btn-start').addEventListener('click', () => navigateTo('home'));
+  el.querySelector('#btn-start').addEventListener('click', () => {
+    const s = getState();
+    const isFirst = s.monsters.length === 0 && s.eggs.length === 0;
+    navigateTo(isFirst ? 'starter' : 'home');
+  });
 }
 
 export function unmount() {}

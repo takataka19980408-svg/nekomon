@@ -3,7 +3,6 @@ import { loadSave, writeSave, genId } from './storage.js';
 import { MONSTER_MAP } from '../data/monsters.js';
 import { EGG_MAP, EGG_EXP_TABLE, HATCH_THRESHOLDS } from '../data/eggs.js';
 
-// 属性相性テーブル
 export const ATTR_CHART = {
   fire:   { fire:1,    water:0.75, grass:1.5,  light:1,    dark:1,    dragon:1 },
   water:  { fire:1.5,  water:1,    grass:0.75, light:1,    dark:1,    dragon:1 },
@@ -17,12 +16,10 @@ export function getAttrMultiplier(attackerAttr, defenderAttr) {
   return ATTR_CHART[attackerAttr]?.[defenderAttr] ?? 1;
 }
 
-// Lv1=1.0, Lv99=2.5倍
 export function monsterStatScale(level) {
   return 1 + (level - 1) * (1.5 / 98);
 }
 
-// 卵レベルから孵化可能形態を返す
 export function maxHatchForm(eggLevel) {
   if (eggLevel >= HATCH_THRESHOLDS.form3) return 3;
   if (eggLevel >= HATCH_THRESHOLDS.form2) return 2;
@@ -41,6 +38,17 @@ export function saveState() {
   writeSave(_state);
 }
 
+export function addMonsterToBox(monsterId) {
+  const s = getState();
+  if (s.monsters.length >= 100) return null;
+  const newMon = { instanceId: genId(), monsterId, level: 1, exp: 0 };
+  s.monsters.push(newMon);
+  const emptyIdx = s.party.findIndex(p => !p.type);
+  if (emptyIdx >= 0) s.party[emptyIdx] = { type: 'monster', instanceId: newMon.instanceId };
+  saveState();
+  return newMon;
+}
+
 export function addEggToBox(eggId) {
   const s = getState();
   if (s.eggs.length >= 100) return false;
@@ -49,13 +57,11 @@ export function addEggToBox(eggId) {
   return true;
 }
 
-// クエストクリア後の経験・卵ドロップ
 export function applyQuestReward(quest, party) {
   const s = getState();
   const eggSlots = party.filter(p => p.type === 'egg').length;
   const totalExp  = quest.expReward.base + eggSlots * quest.expReward.perEggSlot;
 
-  // モンスター EXP
   party.forEach(slot => {
     if (slot.type !== 'monster') return;
     const mon = s.monsters.find(m => m.instanceId === slot.instanceId);
@@ -67,7 +73,6 @@ export function applyQuestReward(quest, party) {
     }
   });
 
-  // 卵 EXP — EGG_EXP_TABLE[N] = Lv N → N+1 に必要なEXP
   party.forEach(slot => {
     if (slot.type !== 'egg') return;
     const egg = s.eggs.find(e => e.instanceId === slot.instanceId);
@@ -79,7 +84,6 @@ export function applyQuestReward(quest, party) {
     }
   });
 
-  // 卵ドロップ
   const dropped = [];
   quest.eggDrops.forEach(drop => {
     if (Math.random() < drop.rate && addEggToBox(drop.eggId))
@@ -91,7 +95,6 @@ export function applyQuestReward(quest, party) {
   return { totalExp, dropped };
 }
 
-// 卵を孵化しモンスターボックスに追加
 export function hatchEgg(eggInstanceId, form) {
   const s = getState();
   const eggInst = s.eggs.find(e => e.instanceId === eggInstanceId);
