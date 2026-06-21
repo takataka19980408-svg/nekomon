@@ -35,4 +35,4 @@ registerScreen('box',          () => import('./screens/box.js'));
 registerScreen('hatch',        () => import('./screens/hatch.js'));
 registerScreen('encyclopedia', () => import('./screens/encyclopedia.js'));
 
-navigaTo('title');
+navigiateTo('title');
