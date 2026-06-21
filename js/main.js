@@ -9,8 +9,6 @@ window.addEventListener('resize', setAppHeight);
 window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 200));
 
 // ── 横画面ロック ──
-// Screen Orientation API でロックできた場合: 常に横画面 → 誘導画面不要
-// ロックできない場合 (iPhone Safari など): CSS が縦画面時に誘導画面を表示
 async function tryLandscape() {
   if (!screen.orientation?.lock) return;
   try {
@@ -35,4 +33,4 @@ registerScreen('box',          () => import('./screens/box.js'));
 registerScreen('hatch',        () => import('./screens/hatch.js'));
 registerScreen('encyclopedia', () => import('./screens/encyclopedia.js'));
 
-navigiateTo('title');
+navigateTo('title');
