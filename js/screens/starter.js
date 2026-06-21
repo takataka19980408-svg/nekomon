@@ -14,6 +14,7 @@ export function mount(el) {
 
   const cards = STARTERS.map(st => {
     const def = MONSTER_MAP[st.id];
+    if (!def) return '';
     return `
       <div class="starter-card" data-id="${st.id}">
         <div class="starter-icon" style="background:${def.color}">${st.emoji}</div>
@@ -43,7 +44,19 @@ export function mount(el) {
 
   el.querySelectorAll('.starter-card').forEach(card => {
     card.querySelector('.starter-btn').addEventListener('click', () => {
+      const s2 = getState();
+      // 旧セーブデータ（卵のみ・モンスターなし）をリセットしてクリーンな初期状態にする
+      s2.eggs = [];
+      s2.monsters = [];
+      s2.party = [
+        { type: null, instanceId: null },
+        { type: null, instanceId: null },
+        { type: null, instanceId: null },
+      ];
+      s2.clearedQuests = [];
+      // スターターモンスターをパーティスロットに自動登録
       addMonsterToBox(card.dataset.id);
+      // スターター卵をプレゼント
       addEggToBox('fire_egg');
       addEggToBox('grass_egg');
       navigateTo('home');
