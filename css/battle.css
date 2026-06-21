@@ -6,7 +6,7 @@
 .battle-wrap {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;          /* 100vh → 100%: 親要素（.screen）を埋める */
   background: #0d0d1a;
   overflow: hidden;
 }
@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px 8px;
+  padding: 8px 12px 6px;
   background: rgba(0,0,0,.6);
   border-bottom: 1px solid #2e2e5a;
   z-index: 10;
@@ -80,7 +80,6 @@
   width: 100%;
   display: block;
   image-rendering: pixelated;
-  /* スマホ縦から横スクロールのバトル場を表示 */
   object-fit: fill;
 }
 
@@ -89,12 +88,12 @@
 ================================================ */
 .battle-bottom {
   flex-shrink: 0;
-  background: rgba(0,0,0,.7);
+  background: rgba(0,0,0,.75);
   border-top: 1px solid #2e2e5a;
-  padding: 10px 12px 14px;
+  padding: 8px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* コストバー */
@@ -112,16 +111,16 @@
 }
 .cost-bar-wrap {
   flex: 1;
-  height: 12px;
+  height: 10px;
   background: #1a1a3a;
-  border-radius: 6px;
+  border-radius: 5px;
   overflow: hidden;
   border: 1px solid #2e2e5a;
 }
 .cost-bar {
   height: 100%;
   background: linear-gradient(90deg, #5a6aff, #a040ff);
-  border-radius: 6px;
+  border-radius: 5px;
   transition: width .2s ease;
 }
 .cost-val {
@@ -138,9 +137,10 @@
   display: flex;
   gap: 8px;
   justify-content: center;
+  align-items: flex-end;
 }
 .deploy-btn {
-  width: 72px; height: 72px;
+  width: 76px; height: 76px;
   border-radius: 14px;
   background: #1a1a3a;
   border: 2px solid #3a3a6a;
@@ -149,20 +149,25 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform .1s, border-color .15s, opacity .15s;
+  transition: transform .12s cubic-bezier(0.34,1.56,0.64,1), border-color .15s, opacity .15s, box-shadow .15s;
   font-size: 12px;
   color: #ccc;
-  gap: 3px;
+  gap: 2px;
+  -webkit-tap-highlight-color: transparent;
 }
-.deploy-btn:active { transform: scale(.9); }
-.deploy-btn.empty  { opacity: .3; cursor: default; }
+.deploy-btn:active {
+  transform: scale(.86);
+  transition: transform .06s ease;
+}
+.deploy-btn.empty  { opacity: .28; cursor: default; }
 .deploy-btn.egg-deploy {
   border-color: #5a4a20;
   background: #1a160a;
   color: #8a7a40;
 }
-.deploy-btn.not-enough { opacity: .4; }
-.deploy-btn small { font-size: 11px; color: #8888aa; }
+.deploy-btn.not-enough { opacity: .38; }
+.deploy-btn canvas { display: block; }
+.deploy-btn small { font-size: 11px; color: #8888aa; line-height: 1; }
 
 /* ================================================
    バトルオーバーレイ
