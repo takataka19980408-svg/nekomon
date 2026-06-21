@@ -190,14 +190,14 @@ function spawnEnemy(enemyId) {
 }
 
 export function deployMonster(slotIdx) {
-  if (!_bs) return;
+  if (!_bs) return false;
   const s = getState();
   const slot = s.party[slotIdx];
-  if (!slot || slot.type !== 'monster') return;
+  if (!slot || slot.type !== 'monster') return false;
   const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
   const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-  if (!def) return;
-  if (_bs.cost < def.stats.cost) return;
+  if (!def) return false;
+  if (_bs.cost < def.stats.cost) return false;
   const scale = monsterStatScale(inst.level);
   _bs.costFrac -= def.stats.cost;
   _bs.cost = _bs.costFrac | 0;
@@ -214,6 +214,7 @@ export function deployMonster(slotIdx) {
     color: def.color, name: def.name,
   });
   updateDeployUI();
+  return true;
 }
 
 function draw() {
@@ -314,6 +315,7 @@ function updateHUD() {
   if (g('#hud-enemy-hp-text')) g('#hud-enemy-hp-text').textContent = _bs.enemyBase.hp;
   if (g('#hud-time')) g('#hud-time').textContent = `${_bs.time|0}s`;
   if (g('#cost-val')) g('#cost-val').textContent  = _bs.cost;
+  updateDeployUI();
 }
 
 function buildDeployUI(el) {
@@ -326,9 +328,9 @@ function buildDeployUI(el) {
     const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
     const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
     if (!def) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
-    return `<div class="deploy-btn" data-slot="${i}" style="border-color:${def.color};background:${def.color}1a">
+    return `<div class="deploy-btn not-enough" data-slot="${i}" data-cost="${def.stats.cost}">
       <canvas class="deploy-canvas" data-attr="${def.attribute}" data-type="${def.type}" data-form="${def.form}" data-color="${def.color}" width="52" height="52"></canvas>
-      <small style="color:${def.color}">${def.stats.cost}pt</small>
+      <span class="deploy-cost">${def.stats.cost}pt</span>
     </div>`;
   }).join('');
 
@@ -352,7 +354,9 @@ function updateDeployUI() {
     const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
     const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
     if (!def) return;
-    btn.classList.toggle('not-enough', _bs.cost < def.stats.cost);
+    const canAfford = _bs.cost >= def.stats.cost;
+    btn.classList.toggle('ready',      canAfford);
+    btn.classList.toggle('not-enough', !canAfford);
   });
 }
 
