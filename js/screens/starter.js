@@ -14,6 +14,7 @@ export function mount(el) {
 
   const cards = STARTERS.map(st => {
     const def = MONSTER_MAP[st.id];
+    if (!def) return '';
     return `
       <div class="starter-card" data-id="${st.id}">
         <div class="starter-icon" style="background:${def.color}">${st.emoji}</div>
@@ -33,16 +34,25 @@ export function mount(el) {
   el.innerHTML = `
     <div class="starter-wrap">
       <div class="starter-header">
-        <h1 class="starter-title">最初の仓間を<br>選んでください！</h1>
+        <h1 class="starter-title">最初の仲間を<br>選んでください！</h1>
         <p class="starter-sub">この子と一緒にバトルへ挑もう</p>
       </div>
       <div class="starter-cards">${cards}</div>
-      <p class="starter-footnote">🥚 選んだ後、烎と草の卵もプレゼントされます</p>
+      <p class="starter-footnote">🥚 選んだ後、炎と草の卵もプレゼントされます</p>
     </div>
   `;
 
   el.querySelectorAll('.starter-card').forEach(card => {
     card.querySelector('.starter-btn').addEventListener('click', () => {
+      const s2 = getState();
+      s2.eggs = [];
+      s2.monsters = [];
+      s2.party = [
+        { type: null, instanceId: null },
+        { type: null, instanceId: null },
+        { type: null, instanceId: null },
+      ];
+      s2.clearedQuests = [];
       addMonsterToBox(card.dataset.id);
       addEggToBox('fire_egg');
       addEggToBox('grass_egg');

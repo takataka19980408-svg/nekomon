@@ -6,8 +6,8 @@ export const MONSTERS = [
   //  火属性 攻撃型
   // ════════════════════════════════════
   {
-    id:'fire_atk_1', name:'フレイムキット', attribute:'fire', type:'attack', form:1,
-    description:'炎を操る小さな獣。とにかく素早いが紙装甲。',
+    id:'fire_atk_1', name:'フレイムパピー', attribute:'fire', type:'attack', form:1,
+    description:'炎を操る子犬の獣。とにかく素早いが紙装甲。',
     stats:{ hp:800,  attack:280, defense:80,  attackInterval:1.8, moveSpeed:3.5, range:100, cost:80  },
     skillId:'fire_strike_1', color:'#FF6B35',
   },
@@ -48,8 +48,8 @@ export const MONSTERS = [
   //  水属性 攻撃型
   // ════════════════════════════════════
   {
-    id:'water_atk_1', name:'ストリームフィッシュ', attribute:'water', type:'attack', form:1,
-    description:'水流を操る小魚。遠距離から素早く攻撃する。',
+    id:'water_atk_1', name:'アクアサーペント', attribute:'water', type:'attack', form:1,
+    description:'水流を操る小さな蛇。遠距離から素早く攻撃する。',
     stats:{ hp:750,  attack:270, defense:70,  attackInterval:1.7, moveSpeed:3.8, range:130, cost:75  },
     skillId:'water_strike_1', color:'#3498DB',
   },
@@ -90,8 +90,8 @@ export const MONSTERS = [
   //  草属性 攻撃型
   // ════════════════════════════════════
   {
-    id:'grass_atk_1', name:'ヴァインスプラウト', attribute:'grass', type:'attack', form:1,
-    description:'蔓を武器にする新芽の獣。素早く連続攻撃する。',
+    id:'grass_atk_1', name:'リーフマンティ', attribute:'grass', type:'attack', form:1,
+    description:'蔓を武器にするカマキリ型の獣。素早く連続攻撃する。',
     stats:{ hp:780,  attack:260, defense:75,  attackInterval:1.6, moveSpeed:3.6, range:110, cost:78  },
     skillId:'grass_strike_1', color:'#27AE60',
   },
