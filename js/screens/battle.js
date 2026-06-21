@@ -92,12 +92,11 @@ function initSizes() {
   _canvas.width  = CW;
   _canvas.height = CH;
   GROUND_Y     = CH - 52;
-  ALLY_BASE_X  = CW - 52;  // 右側 = 味方
-  ENEMY_BASE_X = 52;        // 左側 = 敵
+  ALLY_BASE_X  = CW - 52;
+  ENEMY_BASE_X = 52;
   MON_RADIUS   = Math.max(20, Math.min(32, CH * 0.1));
 }
 
-// ── State builder ──
 function buildBattleState(quest) {
   return {
     quest,
@@ -122,51 +121,36 @@ function buildSpawnQueue(quest) {
   return q.sort((a, b) => a.at - b.at);
 }
 
-// ── Tick ──
 function tick(dt) {
   if (_bs.result) return;
   _bs.time += dt;
-
   _bs.costFrac = Math.min(_bs.costFrac + COST_REGEN * dt, MAX_COST);
   _bs.cost = _bs.costFrac | 0;
-
   while (_bs.spawnQueue.length && _bs.spawnQueue[0].at <= _bs.time)
     spawnEnemy(_bs.spawnQueue.shift().enemyId);
-
   _bs.allies.forEach(u  => tickUnit(u, dt, _bs.enemies, _bs.enemyBase, false));
   _bs.enemies.forEach(u => tickUnit(u, dt, _bs.allies,  _bs.allyBase,  true));
-
   _bs.allies  = _bs.allies.filter(u => u.hp > 0);
   _bs.enemies = _bs.enemies.filter(u => u.hp > 0);
-
   _bs.particles = _bs.particles.filter(p => { p.life -= dt; return p.life > 0; });
   _bs.particles.forEach(p => { p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 300*dt; });
-
   if (_bs.enemyBase.hp <= 0) _bs.result = 'win';
   if (_bs.allyBase.hp  <= 0) _bs.result = 'lose';
-
   updateHUD();
 }
 
 function tickUnit(u, dt, foes, foeBase, isEnemy) {
   u.attackTimer = Math.max(0, u.attackTimer - dt);
-
-  // 右=味方、左=敵
-  // 味方（isEnemy=false）: 左向きに進軍 (dir=-1)
-  // 敵（isEnemy=true）: 右向きに進軍 (dir=+1)
   const dir      = isEnemy ? 1 : -1;
   const foeBaseX = isEnemy ? ALLY_BASE_X : ENEMY_BASE_X;
-
   let target = null, minDist = Infinity;
   foes.forEach(f => {
     if (f.hp <= 0) return;
     const d = Math.abs(u.x - f.x);
     if (d < minDist) { minDist = d; target = f; }
   });
-
   const inRangeFoe  = target && minDist <= u.range;
   const inRangeBase = Math.abs(u.x - foeBaseX) <= u.range;
-
   if (inRangeFoe || inRangeBase) {
     if (u.attackTimer === 0) {
       dealDamage(u, inRangeFoe ? target : null, foeBase, isEnemy);
@@ -194,10 +178,8 @@ function spawnEnemy(enemyId) {
   const def = ENEMY_MAP[enemyId];
   if (!def) return;
   _bs.enemies.push({
-    attribute: def.attribute,
-    type:      def.type ?? 'attack',
-    form:      def.form ?? 1,
-    x: ENEMY_BASE_X + 38,  // 左側拠点から出擃
+    attribute: def.attribute, type: def.type ?? 'attack', form: def.form ?? 1,
+    x: ENEMY_BASE_X + 38,
     hp: def.stats.hp, maxHp: def.stats.hp,
     attack: def.stats.attack, defense: def.stats.defense,
     attackInterval: def.stats.attackInterval,
@@ -216,20 +198,15 @@ export function deployMonster(slotIdx) {
   const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
   if (!def) return;
   if (_bs.cost < def.stats.cost) return;
-
   const scale = monsterStatScale(inst.level);
   _bs.costFrac -= def.stats.cost;
   _bs.cost = _bs.costFrac | 0;
-
   _bs.allies.push({
     instanceId: inst.instanceId,
-    attribute:  def.attribute,
-    type:       def.type,
-    form:       def.form,
-    x: ALLY_BASE_X - 38,  // 右側拠点から出擃
+    attribute: def.attribute, type: def.type, form: def.form,
+    x: ALLY_BASE_X - 38,
     hp: Math.round(def.stats.hp * scale), maxHp: Math.round(def.stats.hp * scale),
-    attack:   Math.round(def.stats.attack  * scale),
-    defense:  Math.round(def.stats.defense * scale),
+    attack: Math.round(def.stats.attack * scale), defense: Math.round(def.stats.defense * scale),
     attackInterval: def.stats.attackInterval,
     moveSpeed: def.stats.moveSpeed, range: def.stats.range,
     attackTimer: 0, skillGauge: 0,
@@ -239,25 +216,20 @@ export function deployMonster(slotIdx) {
   updateDeployUI();
 }
 
-// ── Draw ──
 function draw() {
   const ctx = _ctx;
   ctx.clearRect(0, 0, CW, CH);
   drawBackground(ctx);
   drawBases(ctx);
-  // 敵を先に描画（味方が手前に）
   _bs.enemies.forEach(u => drawUnit(ctx, u, true));
   _bs.allies.forEach(u  => drawUnit(ctx, u, false));
   _bs.particles.forEach(p => drawParticle(ctx, p));
 }
 
 const BG_COLORS = {
-  forest:       ['#0a2a0a','#1a4a1a'],
-  lake:         ['#060e20','#0a1a40'],
-  volcano:      ['#2a0800','#5a1500'],
-  sanctuary:    ['#1a1a00','#3a3a00'],
-  underworld:   ['#0a000a','#200020'],
-  dragons_nest: ['#1a0800','#3a1500'],
+  forest: ['#0a2a0a','#1a4a1a'], lake: ['#060e20','#0a1a40'],
+  volcano: ['#2a0800','#5a1500'], sanctuary: ['#1a1a00','#3a3a00'],
+  underworld: ['#0a000a','#200020'], dragons_nest: ['#1a0800','#3a1500'],
 };
 
 function drawBackground(ctx) {
@@ -265,19 +237,14 @@ function drawBackground(ctx) {
   const grad = ctx.createLinearGradient(0, 0, 0, CH);
   grad.addColorStop(0, c1); grad.addColorStop(1, c2);
   ctx.fillStyle = grad; ctx.fillRect(0, 0, CW, CH);
-
-  // 地面
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.fillRect(0, GROUND_Y, CW, CH - GROUND_Y);
-  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(CW, GROUND_Y); ctx.stroke();
-
-  // 遠山シルエット
   ctx.fillStyle = 'rgba(255,255,255,0.03)';
   for (let i = 0; i < 5; i++) {
     const mx = CW * (0.1 + i * 0.2), mh = CH * (0.18 + (i%2)*0.08);
-    ctx.beginPath(); ctx.moveTo(mx - mh*.8, GROUND_Y); ctx.lineTo(mx, GROUND_Y - mh); ctx.lineTo(mx + mh*.8, GROUND_Y); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(mx-mh*.8,GROUND_Y); ctx.lineTo(mx,GROUND_Y-mh); ctx.lineTo(mx+mh*.8,GROUND_Y); ctx.closePath(); ctx.fill();
   }
 }
 
@@ -285,47 +252,36 @@ function drawBases(ctx) {
   const eR = _bs.enemyBase.hp / _bs.enemyBase.maxHp;
   const aR = _bs.allyBase.hp  / _bs.allyBase.maxHp;
   const bW = 44, bH = 68;
-
-  // 敵拠点 (左)
   ctx.fillStyle = '#7a1a1a';
-  ctx.beginPath(); roundRect(ctx, ENEMY_BASE_X - bW/2, GROUND_Y - bH, bW, bH, 6); ctx.fill();
-  drawHpBar(ctx, ENEMY_BASE_X - bW/2, GROUND_Y - bH - 10, bW, eR, '#e74c3c');
+  ctx.beginPath(); roundRect(ctx, ENEMY_BASE_X-bW/2, GROUND_Y-bH, bW, bH, 6); ctx.fill();
+  drawHpBar(ctx, ENEMY_BASE_X-bW/2, GROUND_Y-bH-10, bW, eR, '#e74c3c');
   ctx.font = `${bW*.48}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('☠', ENEMY_BASE_X, GROUND_Y - bH*.5);
-
-  // 味方拠点 (右)
+  ctx.fillText('☠', ENEMY_BASE_X, GROUND_Y-bH*.5);
   ctx.fillStyle = '#1a3a7a';
-  ctx.beginPath(); roundRect(ctx, ALLY_BASE_X - bW/2, GROUND_Y - bH, bW, bH, 6); ctx.fill();
-  drawHpBar(ctx, ALLY_BASE_X - bW/2, GROUND_Y - bH - 10, bW, aR, '#27ae60');
+  ctx.beginPath(); roundRect(ctx, ALLY_BASE_X-bW/2, GROUND_Y-bH, bW, bH, 6); ctx.fill();
+  drawHpBar(ctx, ALLY_BASE_X-bW/2, GROUND_Y-bH-10, bW, aR, '#27ae60');
   ctx.font = `${bW*.48}px serif`;
-  ctx.fillText('🏰', ALLY_BASE_X, GROUND_Y - bH*.5);
+  ctx.fillText('🏰', ALLY_BASE_X, GROUND_Y-bH*.5);
 }
 
 function drawUnit(ctx, u, isEnemy) {
   const y = GROUND_Y - MON_RADIUS;
-  // 味方は左向き（敵方向）、敵は右向き（味方向）
-  const facingLeft = !isEnemy;
-  drawMonster(ctx, u.x, y, MON_RADIUS, u, facingLeft);
-
-  // HPバー
-  drawHpBar(ctx, u.x - MON_RADIUS, y - MON_RADIUS - 9, MON_RADIUS * 2, u.hp / u.maxHp,
-    isEnemy ? '#e74c3c' : '#27ae60');
-
-  // 必殺技準備リング
+  drawMonster(ctx, u.x, y, MON_RADIUS, u, !isEnemy);
+  drawHpBar(ctx, u.x-MON_RADIUS, y-MON_RADIUS-9, MON_RADIUS*2, u.hp/u.maxHp, isEnemy ? '#e74c3c' : '#27ae60');
   if (!isEnemy && u.skillGauge >= 100) {
     ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(u.x, y, MON_RADIUS + 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(u.x, y, MON_RADIUS+6, 0, Math.PI*2); ctx.stroke();
   }
 }
 
 function drawHpBar(ctx, x, y, w, ratio, color) {
   ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, w, 5);
-  ctx.fillStyle = color; ctx.fillRect(x, y, w * Math.max(0, ratio), 5);
+  ctx.fillStyle = color; ctx.fillRect(x, y, w*Math.max(0,ratio), 5);
 }
 
 function drawParticle(ctx, p) {
-  ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
-  ctx.font = `bold ${11 + p.size}px sans-serif`;
+  ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
+  ctx.font = `bold ${11+p.size}px sans-serif`;
   ctx.fillStyle = p.color; ctx.textAlign = 'center';
   ctx.fillText(p.text, p.x, p.y);
   ctx.globalAlpha = 1;
@@ -335,29 +291,24 @@ function spawnParticle(x, y, text, effective) {
   _bs.particles.push({
     x, y, vx: (Math.random()-.5)*60, vy: -100-Math.random()*60,
     life: 1.0, maxLife: 1.0,
-    text, color: effective ? '#FFD700' : '#fff',
-    size: effective ? 5 : 0,
+    text, color: effective ? '#FFD700' : '#fff', size: effective ? 5 : 0,
   });
 }
 
 function roundRect(ctx, x, y, w, h, r) {
-  ctx.moveTo(x+r, y);
-  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
-  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
-  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
-  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
   ctx.closePath();
 }
 
-// ── HUD ──
 function updateHUD() {
   if (!_el || !_bs) return;
   const g = id => _el.querySelector(id);
-  const aR = _bs.allyBase.hp  / _bs.allyBase.maxHp;
-  const eR = _bs.enemyBase.hp / _bs.enemyBase.maxHp;
   const setW = (el, v) => el && (el.style.width = `${v*100}%`);
-  setW(g('#hud-ally-hp'),  aR);
-  setW(g('#hud-enemy-hp'), eR);
+  setW(g('#hud-ally-hp'),  _bs.allyBase.hp  / _bs.allyBase.maxHp);
+  setW(g('#hud-enemy-hp'), _bs.enemyBase.hp / _bs.enemyBase.maxHp);
   setW(g('#cost-bar'), _bs.cost / MAX_COST);
   if (g('#hud-ally-hp-text'))  g('#hud-ally-hp-text').textContent  = _bs.allyBase.hp;
   if (g('#hud-enemy-hp-text')) g('#hud-enemy-hp-text').textContent = _bs.enemyBase.hp;
@@ -370,28 +321,21 @@ function buildDeployUI(el) {
   const row = el.querySelector('#deploy-row');
   if (!row) return;
   row.innerHTML = s.party.map((slot, i) => {
-    if (!slot.type) return `<div class="deploy-btn empty">✕</div>`;
+    if (!slot.type) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
     if (slot.type === 'egg') return `<div class="deploy-btn egg-deploy">🥚<br><small>孵化用</small></div>`;
     const inst = s.monsters.find(m => m.instanceId === slot.instanceId);
     const def  = inst ? MONSTER_MAP[inst.monsterId] : null;
-    if (!def) return `<div class="deploy-btn empty">✕</div>`;
-    return `<div class="deploy-btn" data-slot="${i}" style="border-color:${def.color}">
-      <span class="deploy-icon" data-attr="${def.attribute}" data-type="${def.type}" data-form="${def.form}" data-color="${def.color}"></span>
-      <small>${def.stats.cost}pt</small>
+    if (!def) return `<div class="deploy-btn empty">＋<br><small>空き</small></div>`;
+    return `<div class="deploy-btn" data-slot="${i}" style="border-color:${def.color};background:${def.color}1a">
+      <canvas class="deploy-canvas" data-attr="${def.attribute}" data-type="${def.type}" data-form="${def.form}" data-color="${def.color}" width="52" height="52"></canvas>
+      <small style="color:${def.color}">${def.stats.cost}pt</small>
     </div>`;
   }).join('');
 
-  // ビジュアルアイコンを canvas で描画
-  el.querySelectorAll('.deploy-icon').forEach(span => {
-    const { attr, type, form, color } = span.dataset;
-    const c = document.createElement('canvas');
-    c.width = 48; c.height = 48;
+  row.querySelectorAll('.deploy-canvas').forEach(c => {
     const ctx2 = c.getContext('2d');
-    const { drawMonster: dm } = { drawMonster };
-    import('../render/monsterSprites.js').then(m => {
-      m.drawMonster(ctx2, 24, 28, 18, { attribute: attr, type, form: +form, color }, true);
-    });
-    span.replaceWith(c);
+    const { attr, type, form, color } = c.dataset;
+    drawMonster(ctx2, 26, 32, 20, { attribute: attr, type, form: +form, color }, true);
   });
 
   row.querySelectorAll('.deploy-btn[data-slot]').forEach(btn => {

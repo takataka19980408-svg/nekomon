@@ -1,0 +1,10 @@
+{
+  "name": "NEKOMON",
+  "short_name": "NEKOMON",
+  "description": "モンスターを孵化させて育て、バトルに挑もう！",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0d0d1a",
+  "theme_color": "#0d0d1a"
+}
