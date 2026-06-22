@@ -45,8 +45,8 @@ export function addExp(iid, amount) {
   if (!mon) return 0;
   mon.exp += amount;
   let gained = 0;
-  while (mon.level < 99 && mon.exp >= mon.level * 100) {
-    mon.exp -= mon.level * 100;
+  while (mon.level < 99 && mon.exp >= mon.level * 50) {
+    mon.exp -= mon.level * 50;
     mon.level++;
     gained++;
   }

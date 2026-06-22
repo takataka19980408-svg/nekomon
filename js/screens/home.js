@@ -7,8 +7,8 @@ export function mount(el) {
   const mon    = s.monsters?.[0];
   const monDef = mon ? MONSTERS[mon.monsterId] : null;
 
-  const expPct     = mon ? Math.min(100, (mon.exp / (mon.level * 100)) * 100) : 0;
-  const expNeeded  = mon ? mon.level * 100 : 100;
+  const expNeeded = mon ? mon.level * 50 : 50;
+  const expPct    = mon ? Math.min(100, (mon.exp / expNeeded) * 100) : 0;
 
   const monCard = monDef ? [
     '<div style="display:flex;align-items:center;gap:12px;background:#141428;border:2px solid #2e2e5a;border-radius:12px;padding:14px;width:100%;max-width:300px;">',
@@ -42,10 +42,10 @@ export function mount(el) {
       '<div style="font-size:11px;color:#444;">🥚 卵ボックス: ' + (s.eggs?.length ?? 0) + ' / 100</div>',
 
       '<div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:300px;">',
-        '<button id="btn-q" style="width:100%;padding:16px;border:none;border-radius:50px;font-size:17px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#5a6aff,#8040ff);color:#fff;font-family:inherit;-webkit-tap-highlight-color:transparent;">⚔️ クエスト</button>',
+        '<button id="btn-q" style="width:100%;padding:16px;border:none;border-radius:50px;font-size:17px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#5a6aff,#8040ff);color:#fff;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">⚔️ クエスト</button>',
         '<div style="display:flex;gap:10px;">',
-          '<button id="btn-b" style="flex:1;padding:11px;border:2px solid #2e2e5a;border-radius:50px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#8888aa;font-family:inherit;-webkit-tap-highlight-color:transparent;">📦 ボックス</button>',
-          '<button id="btn-e" style="flex:1;padding:11px;border:2px solid #2e2e5a;border-radius:50px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#8888aa;font-family:inherit;-webkit-tap-highlight-color:transparent;">🥚 卵</button>',
+          '<button id="btn-b" style="flex:1;padding:11px;border:2px solid #2e2e5a;border-radius:50px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#8888aa;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">📦 ボックス</button>',
+          '<button id="btn-e" style="flex:1;padding:11px;border:2px solid #2e2e5a;border-radius:50px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:#8888aa;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;">🥚 卵</button>',
         '</div>',
       '</div>',
 

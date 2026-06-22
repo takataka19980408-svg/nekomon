@@ -6,7 +6,7 @@ import { QUESTS }   from '../data/quests.js';
 
 const REGEN  = 20;
 const MAX_PT = 500;
-const BTN_H  = 100; // deploy area height (px)
+const BTN_H  = 100;
 
 let _el, _cv, _ctx, _raf, _bs, _q, _qid;
 let _W, _H, _GY, _ABX, _EBX, _UR;
@@ -18,20 +18,18 @@ export function mount(el, params) {
   _q   = QUESTS.find(q => q.id === _qid);
   if (!_q) { go('quest'); return; }
 
-  // --- inline styles only: no CSS class dependency ---
   el.style.cssText =
     'position:absolute;top:0;right:0;bottom:0;left:0;overflow:hidden;background:#0d0d1a;';
 
   el.innerHTML = [
-    '<canvas id="_bc" style="position:absolute;top:0;left:0;display:block;"></canvas>',
+    // pointer-events:none so canvas never blocks overlay touch events
+    '<canvas id="_bc" style="position:absolute;top:0;left:0;display:block;pointer-events:none;"></canvas>',
 
-    // deploy button area - fixed at bottom
     '<div style="position:absolute;bottom:0;left:0;right:0;height:' + BTN_H + 'px;',
       'background:rgba(0,0,0,.92);border-top:1px solid #333;',
       'display:flex;flex-direction:column;align-items:flex-start;',
       'justify-content:center;padding:6px 10px;gap:6px;">',
 
-      // cost row
       '<div style="display:flex;align-items:center;gap:8px;width:100%;">',
         '<span style="font-size:11px;color:#888;font-weight:700;min-width:18px;">PT</span>',
         '<div style="flex:1;height:10px;background:#1a1a3a;border-radius:5px;overflow:hidden;">',
@@ -40,14 +38,13 @@ export function mount(el, params) {
         '<span id="_ctxt" style="font-size:12px;font-weight:700;color:#c8c8ff;min-width:64px;text-align:right;">0 / 500</span>',
       '</div>',
 
-      // deploy buttons row
       '<div style="display:flex;gap:6px;">',
         '<button id="_d0" style="',
           'width:76px;height:58px;border-radius:8px;',
           'border:2px solid #252550;background:#0f0f2a;',
           'cursor:pointer;display:flex;flex-direction:column;',
           'align-items:center;justify-content:center;gap:1px;padding:4px;',
-          'font-family:inherit;-webkit-tap-highlight-color:transparent;',
+          'font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;',
           'opacity:0.35;color:#fff;">',
           '<span style="font-size:20px;line-height:1;">🔥</span>',
           '<span style="font-size:9px;font-weight:700;color:#cce;">フレイムパピー</span>',
@@ -57,7 +54,6 @@ export function mount(el, params) {
 
     '</div>',
 
-    // game-over overlay
     '<div id="_ov" style="display:none;position:absolute;top:0;right:0;bottom:0;left:0;',
       'background:rgba(0,0,0,.82);align-items:center;justify-content:center;z-index:20;">',
       '<div style="text-align:center;padding:30px;background:#141428;border-radius:20px;',
@@ -65,6 +61,7 @@ export function mount(el, params) {
         '<div id="_ovt" style="font-size:42px;font-weight:900;line-height:1;"></div>',
         '<button id="_ovgo" style="padding:13px 24px;border:none;border-radius:50px;',
           'font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;',
+          '-webkit-tap-highlight-color:transparent;touch-action:manipulation;',
           'background:linear-gradient(135deg,#5a6aff,#8040ff);color:#fff;">結果へ</button>',
       '</div>',
     '</div>',
@@ -82,7 +79,6 @@ export function mount(el, params) {
     go('result', { questId: _qid, won: _bs?.result === 'win' })
   );
 
-  // Give browser one frame to paint before measuring
   requestAnimationFrame(() => {
     _resize();
     _bs  = _initState();
@@ -126,6 +122,8 @@ function _loop(ts) {
   _bs.last = ts;
   if (!_bs.result) _update(dt);
   _draw();
+  // Stop the RAF loop when battle is over — overlay button handles navigation
+  if (_bs.result) { _raf = null; return; }
   _raf = requestAnimationFrame(_loop);
 }
 
@@ -133,15 +131,12 @@ function _update(dt) {
   const b = _bs;
   b.t += dt;
 
-  // point regen
   b.ptF += REGEN * dt;
   const g = b.ptF | 0; b.ptF -= g;
   b.pt = Math.min(b.pt + g, MAX_PT);
 
-  // cooldowns
   for (let i = 0; i < b.cd.length; i++) b.cd[i] = Math.max(0, b.cd[i] - dt);
 
-  // enemy spawn
   if (b.t >= b.nextSpawn) {
     const w = _q.waves[b.wIdx % _q.waves.length];
     _spawnEnemy(w.enemyId);
@@ -149,20 +144,16 @@ function _update(dt) {
     b.wIdx++;
   }
 
-  // tick units
   b.allies .forEach(u => _tick(u, dt, b.enemies, b.eBase));
   b.enemies.forEach(u => _tick(u, dt, b.allies,  b.aBase));
 
-  // remove dead
   [...b.allies, ...b.enemies].forEach(u => { if (u.hp <= 0) _part(u.x, _GY - _UR, u.col); });
   b.allies  = b.allies .filter(u => u.hp > 0);
   b.enemies = b.enemies.filter(u => u.hp > 0);
 
-  // particles
   b.parts.forEach(p => { p.y -= 28*dt; p.a -= dt*2; });
   b.parts = b.parts.filter(p => p.a > 0);
 
-  // win/lose
   if (!b.result) {
     if (b.eBase.hp <= 0) { b.result='win';  markCleared(_qid); _showOv('WIN!',  '#f5c518'); }
     else if (b.aBase.hp <= 0) { b.result='lose'; _showOv('LOSE...','#e74c3c'); }
@@ -251,38 +242,29 @@ function _draw() {
   const ctx = _ctx;
   if (!ctx || !_W || !_H) return;
 
-  // --- sky ---
   const sk = ctx.createLinearGradient(0,0,0,_GY);
   sk.addColorStop(0,'#1a4a1a'); sk.addColorStop(1,'#6aa45a');
   ctx.fillStyle = sk;
   ctx.fillRect(0, 0, _W, _GY);
 
-  // --- ground ---
   ctx.fillStyle = '#5a3a10'; ctx.fillRect(0,_GY,_W,_H-_GY);
   ctx.fillStyle = '#3a6a1a'; ctx.fillRect(0,_GY,_W,8);
 
-  // --- HUD on canvas (top strip) ---
   ctx.fillStyle = 'rgba(0,0,0,0.65)';
   ctx.fillRect(0, 0, _W, 38);
 
-  // enemy HP bar (left)
   _drawBar(ctx, 8, 8, _W/2-60, 10, _bs.eBase.hp/_bs.eBase.max, '#e74c3c', '敵基地');
-  // ally HP bar (right)
   _drawBar(ctx, _W/2+52, 8, _W/2-60, 10, _bs.aBase.hp/_bs.aBase.max, '#27ae60', '自基地');
-  // time
   ctx.fillStyle = '#aaa'; ctx.font = 'bold 12px sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText((_bs.t|0)+'s', _W/2, 13);
 
-  // --- bases ---
   _drawBase(ctx, _EBX, '#CC2222', _bs.eBase.hp/_bs.eBase.max, '☠');
   _drawBase(ctx, _ABX, '#2244CC', _bs.aBase.hp/_bs.aBase.max, '🏰');
 
-  // --- units ---
   _bs.enemies.forEach(u => _drawUnit(ctx, u, true));
   _bs.allies .forEach(u => _drawUnit(ctx, u, false));
 
-  // --- particles ---
   _bs.parts.forEach(p => {
     ctx.save();
     ctx.globalAlpha = Math.max(0,p.a);
@@ -306,7 +288,6 @@ function _drawBase(ctx, x, col, ratio, icon) {
   ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.strokeRect(x-bw/2,by,bw,bh);
   ctx.font=`${bw*.85}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(icon, x, by+bh/2);
-  // small HP bar
   const bw2=50, bx2=x-25, by2=by-10;
   ctx.fillStyle='#111a'; ctx.fillRect(bx2,by2,bw2,6);
   ctx.fillStyle=ratio>0.5?'#44DD44':ratio>0.25?'#DDDD44':'#DD4444';
