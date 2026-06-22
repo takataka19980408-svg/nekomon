@@ -19,20 +19,20 @@ export function mount(el, params) {
 
   el.innerHTML = `
     <div class="battle-wrap">
-      <div class="battle-hud" id="bhud">
+      <div class="battle-hud">
         <div class="hud-side enemy">
           <div class="hud-lbl">敵基地</div>
-          <div class="hud-bar-bg"><div class="hud-bar" id="ehp" style="width:100%;background:#e74c3c"></div></div>
+          <div class="hud-bar-bg"><div class="hud-bar" id="ehp"></div></div>
           <div class="hud-hp" id="ehp-n">${_quest.enemyBaseHp}</div>
         </div>
         <div class="hud-time" id="hud-t">0s</div>
         <div class="hud-side ally">
           <div class="hud-lbl">自基地</div>
-          <div class="hud-bar-bg"><div class="hud-bar" id="ahp" style="width:100%;background:#27ae60"></div></div>
+          <div class="hud-bar-bg"><div class="hud-bar" id="ahp"></div></div>
           <div class="hud-hp" id="ahp-n">300</div>
         </div>
       </div>
-      <canvas id="bc"></canvas>
+      <canvas id="battle-canvas"></canvas>
       <div class="battle-bottom">
         <div class="cost-row">
           <span class="cost-lbl">PT</span>
@@ -56,7 +56,7 @@ export function mount(el, params) {
     </div>
   `;
 
-  _canvas = el.querySelector('#bc');
+  _canvas = el.querySelector('#battle-canvas');
   _ctx    = _canvas.getContext('2d');
   _onResize = () => _resize();
   window.addEventListener('resize', _onResize);
@@ -75,7 +75,8 @@ export function mount(el, params) {
 function _resize() {
   if (!_canvas) return;
   _CW = _canvas.clientWidth  || (_el?.clientWidth  ?? 600);
-  _CH = _canvas.clientHeight || (_el?.clientHeight ?? 300) - 100;
+  _CH = _canvas.clientHeight || 200;
+  if (_CH < 50) _CH = (_el?.clientHeight ?? 400) - 120;
   _canvas.width  = _CW;
   _canvas.height = _CH;
   _GY  = _CH - 42;
@@ -102,6 +103,7 @@ function _initState() {
 
 function _loop(ts) {
   if (!_bs) return;
+  if (!_CW) _resize();
   if (_bs.lastTs === null) _bs.lastTs = ts;
   const dt = Math.min((ts - _bs.lastTs) / 1000, 0.05);
   _bs.lastTs = ts;
@@ -114,7 +116,7 @@ function _update(dt) {
   const b = _bs;
   b.t += dt;
 
-  // cost
+  // cost regen
   b.costF += COST_REGEN * dt;
   const g = b.costF | 0; b.costF -= g;
   b.cost = Math.min(b.cost + g, MAX_COST);
@@ -122,7 +124,7 @@ function _update(dt) {
   // cooldowns
   for (let i = 0; i < b.cd.length; i++) b.cd[i] = Math.max(0, b.cd[i] - dt);
 
-  // spawn enemies
+  // enemy spawning
   if (b.t >= b.nextSpawn) {
     const w = _quest.waves[b.wIdx % _quest.waves.length];
     _spawnEnemy(w.enemyId);
@@ -130,11 +132,11 @@ function _update(dt) {
     b.wIdx++;
   }
 
-  // tick
+  // unit tick
   b.allies .forEach(u => _tick(u, dt, b.enemies, b.eBase));
   b.enemies.forEach(u => _tick(u, dt, b.allies,  b.aBase));
 
-  // death particles
+  // remove dead + death flash
   [...b.allies, ...b.enemies].forEach(u => {
     if (u.hp <= 0) _part(u.x, _GY - _UR, u.color);
   });
@@ -145,15 +147,12 @@ function _update(dt) {
   b.parts.forEach(p => { p.y -= 30*dt; p.a -= dt*1.8; });
   b.parts = b.parts.filter(p => p.a > 0);
 
-  // win/lose
+  // win / lose
   if (!b.result) {
     if (b.eBase.hp <= 0) {
-      b.result = 'win';
-      markCleared(_questId);
-      _showOv('WIN! 🎉', 'win');
+      b.result = 'win'; markCleared(_questId); _showOv('WIN! 🎉', 'win');
     } else if (b.aBase.hp <= 0) {
-      b.result = 'lose';
-      _showOv('LOSE... 💀', 'lose');
+      b.result = 'lose'; _showOv('LOSE... 💀', 'lose');
     }
   }
 
@@ -163,16 +162,20 @@ function _update(dt) {
 function _tick(u, dt, foes, foeBase) {
   u.atkt = Math.max(0, u.atkt - dt);
 
+  // find nearest foe
   let tgt = null, md = Infinity;
   foes.forEach(f => { const d = Math.abs(f.x - u.x); if (d < md) { tgt = f; md = d; } });
 
   if (tgt && md <= u.range) {
+    // attack unit
     if (u.atkt === 0) { tgt.hp -= u.atk; u.atkt = u.atkI; _part(tgt.x, _GY - _UR*2, '#FFD700'); }
   } else {
     const bd = Math.abs(u.tgtX - u.x);
     if (bd <= u.range) {
+      // attack base
       if (u.atkt === 0) { foeBase.hp = Math.max(0, foeBase.hp - u.atk); u.atkt = u.atkI; _part(u.tgtX, _GY-60, '#FF5555'); }
     } else {
+      // move
       u.x += u.dir * u.spd * dt;
     }
   }
@@ -180,12 +183,24 @@ function _tick(u, dt, foes, foeBase) {
 
 function _spawnAlly(id) {
   const d = MONSTERS[id]; if (!d) return;
-  _bs.allies.push({ x:_ABX - _UR*3, hp:d.stats.hp, maxHp:d.stats.hp, atk:d.stats.atk, range:d.stats.range, atkI:d.stats.atkInterval, spd:d.stats.speed, atkt:0, dir:-1, tgtX:_EBX, color:d.color });
+  _bs.allies.push({
+    x: _ABX - _UR*3,
+    hp:d.stats.hp, maxHp:d.stats.hp,
+    atk:d.stats.atk, range:d.stats.range,
+    atkI:d.stats.atkInterval, spd:d.stats.speed,
+    atkt:0, dir:-1, tgtX:_EBX, color:d.color,
+  });
 }
 
 function _spawnEnemy(id) {
   const d = ENEMIES[id]; if (!d) return;
-  _bs.enemies.push({ x:_EBX + _UR*3, hp:d.stats.hp, maxHp:d.stats.hp, atk:d.stats.atk, range:d.stats.range, atkI:d.stats.atkInterval, spd:d.stats.speed, atkt:0, dir:+1, tgtX:_ABX, color:d.color });
+  _bs.enemies.push({
+    x: _EBX + _UR*3,
+    hp:d.stats.hp, maxHp:d.stats.hp,
+    atk:d.stats.atk, range:d.stats.range,
+    atkI:d.stats.atkInterval, spd:d.stats.speed,
+    atkt:0, dir:+1, tgtX:_ABX, color:d.color,
+  });
 }
 
 function _deploy() {
@@ -198,7 +213,7 @@ function _deploy() {
 }
 
 function _part(x, y, col) {
-  _bs.parts.push({ x, y, color:col, a:1.0 });
+  _bs?.parts.push({ x, y, color:col, a:1.0 });
 }
 
 function _showOv(text, cls) {
@@ -211,13 +226,13 @@ function _showOv(text, cls) {
 function _hud() {
   const b = _bs;
   const $ = id => document.getElementById(id);
-  const setW = (el, v) => el && (el.style.width = (Math.max(0, Math.min(1,v))*100)+'%');
+  const setW = (el, v) => el && (el.style.width = (Math.max(0,Math.min(1,v))*100)+'%');
   setW($('ehp'), b.eBase.hp / b.eBase.maxHp);
   setW($('ahp'), b.aBase.hp / b.aBase.maxHp);
   setW($('cbar'), b.cost / MAX_COST);
-  const eN = $('ehp-n'); if (eN) eN.textContent = Math.ceil(b.eBase.hp);
-  const aN = $('ahp-n'); if (aN) aN.textContent = Math.ceil(b.aBase.hp);
-  const ct = $('ctxt'); if (ct) ct.textContent = `${b.cost|0} / ${MAX_COST}`;
+  const en = $('ehp-n'); if (en) en.textContent = Math.ceil(b.eBase.hp);
+  const an = $('ahp-n'); if (an) an.textContent = Math.ceil(b.aBase.hp);
+  const ct = $('ctxt');  if (ct) ct.textContent = `${b.cost|0} / ${MAX_COST}`;
   const ht = $('hud-t'); if (ht) ht.textContent = `${b.t|0}s`;
 
   const btn = $('d0'), dc = $('d0c');
@@ -241,9 +256,9 @@ function _draw() {
   const ctx = _ctx;
   if (!ctx || !_CW || !_CH) return;
 
-  // sky
+  // sky / forest background
   const sk = ctx.createLinearGradient(0,0,0,_GY);
-  sk.addColorStop(0,'#3a6e3a'); sk.addColorStop(1,'#8ac47a');
+  sk.addColorStop(0,'#1a4a1a'); sk.addColorStop(1,'#6aa45a');
   ctx.fillStyle = sk; ctx.fillRect(0,0,_CW,_GY);
 
   // ground
@@ -274,7 +289,7 @@ function _drawBase(ctx, x, col, ratio, icon) {
   ctx.strokeStyle = col; ctx.lineWidth=3; ctx.strokeRect(x-bw/2,by,bw,bh);
   ctx.font=`${bw*.9}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(icon, x, by+bh/2);
-  // hp bar
+  // HP bar above base
   const bw2=54, bh2=6, bx2=x-bw2/2, by2=by-11;
   ctx.fillStyle='#1116'; ctx.fillRect(bx2,by2,bw2,bh2);
   ctx.fillStyle=ratio>0.5?'#44DD44':ratio>0.25?'#DDDD44':'#DD4444';
@@ -286,15 +301,17 @@ function _drawUnit(ctx, u, isEnemy) {
   ctx.save();
   ctx.fillStyle = u.color;
   if (isEnemy) {
+    // diamond shape for enemies
     ctx.beginPath();
     ctx.moveTo(u.x, y-r); ctx.lineTo(u.x+r, y);
     ctx.lineTo(u.x, y+r); ctx.lineTo(u.x-r, y);
     ctx.closePath(); ctx.fill();
   } else {
+    // circle for allies
     ctx.beginPath(); ctx.arc(u.x, y, r, 0, Math.PI*2); ctx.fill();
   }
   ctx.strokeStyle='rgba(255,255,255,0.7)'; ctx.lineWidth=1.5; ctx.stroke();
-  // hp bar
+  // HP bar below unit
   const hw=r*2, hpR=u.hp/u.maxHp;
   ctx.fillStyle='#0007'; ctx.fillRect(u.x-r, y+r+2, hw, 4);
   ctx.fillStyle=hpR>0.5?'#44DD44':'#DD4444';
